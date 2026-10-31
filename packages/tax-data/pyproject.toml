@@ -1,0 +1,35 @@
+[project]
+name = "contai-tax-data"
+version = "0.1.0"
+description = "Pipeline tributaria rastreavel do contAI"
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[project.scripts]
+contai-tax-data = "contai_tax_data.cli:main"
+
+[dependency-groups]
+dev = [
+  "mypy>=1.15,<2",
+  "pytest>=8.3,<10",
+  "ruff>=0.12,<1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "RUF", "SIM", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true

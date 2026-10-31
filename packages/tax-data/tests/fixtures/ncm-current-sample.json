@@ -1,0 +1,78 @@
+{
+  "Data_Ultima_Atualizacao_NCM": "Vigente em 30/10/2026",
+  "Ato": "Resolução Gecex nº 926/2026",
+  "Nomenclaturas": [
+    {
+      "Codigo": "3913.90.50",
+      "Descricao": "Quitosana, seus sais ou seus derivados",
+      "Data_Inicio": "01/10/2026",
+      "Data_Fim": "31/12/9999",
+      "Tipo_Ato_Ini": "Res Gecex",
+      "Numero_Ato_Ini": "926",
+      "Ano_Ato_Ini": "2026"
+    },
+    {
+      "Codigo": "01.01",
+      "Descricao": "Cavalos, asininos e muares, vivos.",
+      "Data_Inicio": "01/04/2022",
+      "Data_Fim": "31/12/9999",
+      "Tipo_Ato_Ini": "Res Gecex",
+      "Numero_Ato_Ini": "272",
+      "Ano_Ato_Ini": "2021"
+    },
+    {
+      "Codigo": "39.13",
+      "Descricao": "Polímeros naturais (ácido algínico, por exemplo) e polímeros naturais modificados (por exemplo, proteínas endurecidas, derivados químicos da borracha natural), não especificados nem compreendidos noutras posições, em formas primárias.",
+      "Data_Inicio": "01/04/2022",
+      "Data_Fim": "31/12/9999",
+      "Tipo_Ato_Ini": "Res Gecex",
+      "Numero_Ato_Ini": "272",
+      "Ano_Ato_Ini": "2021"
+    },
+    {
+      "Codigo": "0101.21.00",
+      "Descricao": "-- Reprodutores de raça pura",
+      "Data_Inicio": "01/04/2022",
+      "Data_Fim": "31/12/9999",
+      "Tipo_Ato_Ini": "Res Gecex",
+      "Numero_Ato_Ini": "272",
+      "Ano_Ato_Ini": "2021"
+    },
+    {
+      "Codigo": "39",
+      "Descricao": "Plástico e suas obras.",
+      "Data_Inicio": "01/04/2022",
+      "Data_Fim": "31/12/9999",
+      "Tipo_Ato_Ini": "Res Gecex",
+      "Numero_Ato_Ini": "272",
+      "Ano_Ato_Ini": "2021"
+    },
+    {
+      "Codigo": "0101.2",
+      "Descricao": "- Cavalos:",
+      "Data_Inicio": "01/04/2022",
+      "Data_Fim": "31/12/9999",
+      "Tipo_Ato_Ini": "Res Gecex",
+      "Numero_Ato_Ini": "272",
+      "Ano_Ato_Ini": "2021"
+    },
+    {
+      "Codigo": "3913.90",
+      "Descricao": "- Outros",
+      "Data_Inicio": "01/04/2022",
+      "Data_Fim": "31/12/9999",
+      "Tipo_Ato_Ini": "Res Gecex",
+      "Numero_Ato_Ini": "272",
+      "Ano_Ato_Ini": "2021"
+    },
+    {
+      "Codigo": "01",
+      "Descricao": "Animais vivos.",
+      "Data_Inicio": "01/04/2022",
+      "Data_Fim": "31/12/9999",
+      "Tipo_Ato_Ini": "Res Gecex",
+      "Numero_Ato_Ini": "272",
+      "Ano_Ato_Ini": "2021"
+    }
+  ]
+}

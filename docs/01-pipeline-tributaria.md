@@ -1,7 +1,7 @@
 # Etapa 01 — Pipeline tributária
 
 > **contAI · Especificação de execução v2.0 · 30/10/2026**  
-> **Status:** planejamento aprovado quanto à direção; implementação e acesso remoto ainda não iniciados.  
+> **Status:** Marco A concluído; primeiro fluxo NCM do Marco B implementado e testado localmente; acesso remoto não iniciado.
 > **Escopo autorizado:** exclusivamente a plataforma de dados tributários. Motor fiscal, desktop, landing page, IA e MCP permanecem fora desta etapa.
 
 ## 1. Objetivo
@@ -292,6 +292,90 @@ A etapa 01 só pode ser declarada concluída quando:
 | Exposição da base | Só datasets aprovados; acesso por menor privilégio | Abertura de endpoint público, tokens de usuário ou mudanças de RLS |
 
 Não pedir confirmação para cada função, teste, diretório ou commit local. **Perguntar somente pelo ponto crítico e continuar o que for seguro em paralelo.**
+
+## 12. Resultado do Marco A e preparação local do Marco B
+
+Levantamento realizado em **30/10/2026**. URLs e contagens abaixo são evidências datadas, não promessa de estabilidade. A classificação `confirmado na origem` significa que a página, documentação ou artefato oficial foi consultado; `observado apenas na referência` não é tratado como contrato oficial; `hipótese` exige nova verificação antes de implementar.
+
+### 12.1 Referência técnica fixada
+
+- Repositório: [`Matheuscfs/legislacao-tributaria`](https://github.com/Matheuscfs/legislacao-tributaria).
+- Commit estudado: [`94a27084e158ef4c62a317822b3d2d2b517858ad`](https://github.com/Matheuscfs/legislacao-tributaria/tree/94a27084e158ef4c62a317822b3d2d2b517858ad), de `2026-10-30T15:34:28Z`.
+- Licença nesse commit: MIT, copyright 2026 Matheus Fachim.
+- Arquivos lidos: `README.md`, `LICENSE`, `scripts/capturar.ts`, `src/fonte.ts`, `src/ncm.ts`, `src/ibs-cbs.ts`, `src/cest.ts`, `src/tipi.ts`, `src/planalto.ts`, `src/confaz.ts`, `src/descoberta.ts`, `.github/workflows/capturar.yml` e os quatro arquivos de testes.
+- Uso no contAI: estudo de comportamento e descoberta de casos de borda. A implementação Python foi escrita de forma independente; nenhum código, teste ou corpus transformado da referência foi copiado.
+
+### 12.2 Matriz comparativa
+
+| Fonte oficial | Tratamento observado na referência | Solução Python do contAI | Evidência e classificação | Risco | Decisão |
+|---|---|---|---|---|---|
+| NCM — Portal Único Siscomex | Baixa o JSON vigente, remove do resultado a data diária, converte `31/12/9999` em fim aberto, ordena e compara CSV. | Contrato JSON estrito, bruto imutável por SHA-256, normalização tipada, hierarquia pelo ancestral existente, release por hash semântico e JSONL local. | Endpoint, manual, campos e limitação ao vigente: **confirmados na origem**. Estratégia da referência: **observada apenas na referência**. | Cabeçalho `Vigente em` muda sem mudança tributária; download não traz histórico passado/futuro. | **Implementar agora**, sem importar código terceiro; status `parcial-local` até publicação governada. |
+| IBS/CBS — SVRS/Conformidade Fácil | Extrai `dadosOriginais` embutido no HTML e gera CST, cClassTrib e vínculos NCM/NBS. | Preferir os serviços oficiais `classTrib` e `anexos`; só recorrer a HTML após contrato e termos confirmados. Modelar vínculos muitos-para-muitos e condições. | Página, exportações e URLs de serviços v1.00: **confirmados na origem**. Estrutura interna do JavaScript: **observada apenas na referência**. | API direta sofreu reset no teste; contrato, limites e estabilidade ainda não verificados. | **Não implementar neste marco**; manter `em investigação`. |
+| CEST — CONFAZ, Convênio ICMS 142/18 | Lê tabelas HTML, ignora linhas marcadas como redação antiga e usa `(CEST, NCM)` para linhas. | Preservar original e notas legais; separar CEST, segmento e relação CEST–NCM com vigência verificável. | Convênio e tabelas acessíveis: **confirmados na origem**. Regras de classes HTML antigas: **observadas apenas na referência**. | HTML compilado irregular; revogação e efeitos não são campos uniformes por linha. | **Não implementar neste marco**; exigir fixtures por época e revisão jurídica de vigência. |
+| TIPI — Receita Federal | Lê XLSX, filtra linhas de produto e usa `(NCM, EX)`; toma o último ato da capa como atualização. | Ler XLSX oficial preservando texto rico quando relevante; separar linha, exceção, alíquota e ato, sem inventar vigência por linha. | Página, XLSX e atualização: **confirmados na origem**. Heurística do último ato: **observada apenas na referência**. | Notas de seção/capítulo e efeitos dos atos podem não estar estruturados. | **Não implementar neste marco**; contrato depende de amostras históricas. |
+| Leis federais — Planalto | Converte HTML compilado em Markdown, mantendo texto riscado; monitora catálogo explícito. | Futuro modelo de ato, dispositivo, versão e remissão; guardar HTML e não inferir revogação pelo estilo. | Textos compilados individuais: **confirmados na origem**. Conversão e marcações antigas: **observadas apenas na referência**. | Charset legado, bloqueio automatizado, tabelas irregulares e vigências textuais. | **Não implementar neste marco**; conteúdo exige curadoria. |
+| CONFAZ — convênios, protocolos e ajustes | Descobre páginas por sitemap/`lastmod`, converte HTML e relata bloqueio geográfico em runners externos. | Validar semântica de `lastmod`, limitar concorrência e volume; não usar proxy sem aprovação. | Sitemap e página do Convênio 142 acessíveis no teste: **confirmados na origem**. Bloqueio fora do Brasil: **observado apenas na referência**. | Restrição geográfica pode impedir GitHub Actions; `lastmod` pode não equivaler a mudança normativa. | **Não implementar neste marco**; manter `em investigação`. |
+| Descoberta de novas normas — índices do Planalto | Lê o quadro de leis complementares e classifica ementas candidatas; abre issue para curadoria. | Descoberta apenas cria candidato, nunca publicação automática; ampliar fontes somente após acesso oficial estável. | Quadro oficial existe, mas bloqueou/expirou nos testes automatizados: **confirmado na origem com problema de acesso**. Classificador de ementa: **observado apenas na referência**. | Falsos positivos/negativos e bloqueio anti-automação. | **Bloqueado para automação atual**; não contornar controles. |
+
+### 12.3 Inventário verificável de fontes
+
+| Domínio e situação | Órgão, página e URL de dados | Acesso, formato e atualização | Condições e restrições | Campos, chave e temporalidade | Tamanho e teste de disponibilidade |
+|---|---|---|---|---|---|
+| **NCM — parcial-local** | RFB/Ceclam, [página de download](https://www.gov.br/receitafederal/pt-br/assuntos/aduana-e-comercio-exterior/classificacao-fiscal-de-mercadorias/download-ncm-nomenclatura-comum-do-mercosul), [manual do Classif](https://www.gov.br/siscomex/pt-br/arquivos-e-imagens/2021/07/ClassifManualdoUsuariov5.0.pdf), [JSON](https://portalunico.siscomex.gov.br/classif/api/publico/nomenclatura/download/json). | HTTPS GET público, sem captcha no link direto; redireciona para `?perfil=PUBLICO`; JSON UTF-8. A página de integração informa atualização diária à meia-noite. | Sem limite de requisições ou licença específica do dataset identificados. Usar baixa frequência, cache e termos gerais dos portais; não presumir SLA. | Raiz: `Data_Ultima_Atualizacao_NCM`, `Ato`, `Nomenclaturas`. Linha: código, descrição, início/fim, tipo/número/ano do ato inicial. Chave `(release_id, code)`; `31/12/9999` vira `NULL`. O arquivo cobre somente o vigente; histórico é consulta separada no Classif. | Em `2026-10-30T23:31:50Z`: HTTP 200, `application/json`, 3.149.450 bytes, SHA-256 `dfae9ea93ddaa01512009739341c38a01dd7a1d2c3e2fdf089f46dbe970d2fb5`, 15.157 linhas, 10.516 subitens, 96 capítulos, sem códigos duplicados. |
+| **IBS/CBS — em investigação** | SVRS/ENCAT, [tabela online](https://dfe-portal.svrs.rs.gov.br/CFF/ClassificacaoTributaria), [serviços](https://dfe-portal.svrs.rs.gov.br/CFF/Servicos), API `https://cff.svrs.rs.gov.br/api/v1/consultas/classTrib` e `.../anexos`. | Página pública com CSV/Excel/JSON; serviços v1.00 publicados. Atualização declarada como periódica. | Limites e licença específica não publicados nas páginas consultadas. Janela de manutenção oficial aos domingos, 07h–09h. API direta resetou a conexão neste ambiente. | CST, cClassTrib, indicadores, reduções, documentos e anexos/vínculos. Chaves candidatas: CST, cClassTrib e vínculo composto; vigências existem na representação observada, mas o contrato da API precisa ser confirmado. | Página: HTTP 200 e cerca de 4,19 MB em 30/10/2026. No SHA de referência: 18 CST, 173 classes e 4.728 vínculos — números **não validados como contagem oficial atual**. |
+| **CEST — em investigação** | CONFAZ, [Convênio ICMS 142/18 compilado](https://www.confaz.fazenda.gov.br/legislacao/convenios/2018/CV142_18). | HTTPS público, HTML com anexos; atualização por atos modificadores, sem periodicidade fixa. | Sem limite/licença específica identificados. Acesso pode depender de região segundo a referência; não usar proxy sem aprovação. | Segmento, item, CEST, NCM/SH, descrição e notas de alteração. Relação muitos-para-muitos; chave candidata `(release_id, cest, ncm, item)`. Vigência deve vir dos atos/notas, não da captura. | HTTP 200, `text/html`, 933.142 bytes em 30/10/2026. Referência: 25 segmentos, 1.302 linhas e 1.053 CEST — apenas estimativa. |
+| **TIPI — em investigação** | Receita Federal, [página TIPI](https://www.gov.br/receitafederal/pt-br/acesso-a-informacao/legislacao/tipi-tabela-de-incidencia-do-imposto-sobre-produtos-industrializados), [XLSX](https://www.gov.br/receitafederal/pt-br/acesso-a-informacao/legislacao/documentos-e-arquivos/tipi.xlsx). | HTTPS público; PDF, DOCX e XLSX. Atualização por decreto/ADE, sem agenda fixa publicada. | Sem limite/licença específica identificados; preservar formatação e atos da planilha. | NCM, EX, descrição, alíquota e notas/atos. Chave candidata `(release_id, ncm, ex)`; vigência não é uniforme por linha e deve ser derivada somente de ato verificável. | HTTP 200, XLSX, 673.645 bytes; página do arquivo atualizada em 13/02/2026. Referência: 15.563 linhas — estimativa. |
+| **Leis federais — em investigação** | Presidência da República/Planalto, [índice de legislação](https://planalto.gov.br/ccivil_03/leis/_lei-principal.htm) e URLs individuais catalogadas. | HTML compilado, atualização por publicação/alteração legal. Charset e marcação variam. | Acesso automatizado pode ser bloqueado; sem limite publicado. Texto normativo não deve ser confundido com interpretação. | Ato, dispositivo, redação, remissão e efeitos. Chaves futuras por ato/dispositivo/versão; vigência é verificável por ato e anotação, nunca pela captura ou estilo visual isolado. | LC 214 individual acessível pela consulta web; quadro de LCs retornou bloqueio e timeout no teste local de 30/10/2026. Tamanho varia por norma. |
+| **CONFAZ/descoberta — em investigação** | CONFAZ, [sitemap](https://www.confaz.fazenda.gov.br/sitemap.xml.gz) e páginas de convênios/protocolos/ajustes. | Sitemap GZip + HTML; `lastmod` é candidato a detecção incremental. Atualização por publicação de atos. | Nenhum limite publicado; carga deve ser paginada/limitada. Possível restrição geográfica observada na referência. | URL, seção, ano, ato, ementa, conteúdo e `lastmod`. Chave de descoberta por URL; chave jurídica por tipo/número/ano após validação. Efeitos permanecem textuais até curadoria. | Sitemap: HTTP 200, `application/octet-stream`, 325.836 bytes. No SHA de referência: 11.057 atos — estimativa, não cobertura oficial garantida. |
+| **Novas normas — bloqueado para automação** | Planalto, `https://www.planalto.gov.br/ccivil_03/leis/lcp/quadro_lcp.htm`. | Quadro HTML, atualização por nova lei complementar. | Requisição web retornou “Acesso Negado” e a tentativa local expirou após 30 s. Não contornar. | Número, data, URL e ementa; chave `(tipo, numero, ano)`. Marca “tributária” seria apenas triagem para revisão humana. | Sem corpo válido no teste de 30/10/2026; referência continha 238 linhas no snapshot, número apenas indicativo. |
+
+### 12.4 Contrato inicial da NCM (`ncm-v1`)
+
+O contrato de entrada é estrito para detectar mudança silenciosa de schema. O JSON deve ser UTF-8, conter exatamente as três chaves de raiz e, em cada linha, exatamente os sete campos confirmados. Campos novos, ausentes, tipo inesperado, JSON malformado ou `Content-Type` diferente de `application/json` arquivam o bruto em quarentena e não alteram a release corrente.
+
+| Campo normalizado | Tipo | Nulo | Regra |
+|---|---|---:|---|
+| `code` | texto | não | Preserva pontuação e zeros à esquerda; formatos oficiais de 2, 4, 5, 6, 7 ou 8 dígitos. |
+| `code_digits` | texto | não | Somente dígitos, para busca e ordenação; não converter para número. |
+| `description` | texto | não | Espaços normalizados; hífens hierárquicos preservados. |
+| `level` | enum | não | `chapter`, `position`, `subposition_1`, `subposition_2`, `item` ou `subitem`. |
+| `parent_code` | texto | sim | Ancestral mais longo presente no mesmo snapshot; capítulo tem `NULL`. Não inventar níveis omitidos. |
+| `valid_from` | data | não | `Data_Inicio` oficial convertida de `DD/MM/AAAA`. |
+| `valid_to` | data | sim | `31/12/9999` significa fim aberto e vira `NULL`; demais datas são preservadas. |
+| `initial_act_type` | texto | não | Tipo do ato inicial informado na linha. |
+| `initial_act_number` | texto | não | Somente dígitos e preservado como texto. |
+| `initial_act_year` | texto | não | Quatro dígitos e preservado como texto. |
+| `source_row_id` | texto | não | `Codigo:<code>` dentro do artefato oficial. |
+
+Metadados da release: `contract_version`, `source_schema_version`, `source_act`, `source_as_of`, `artifact_sha256`, `snapshot_sha256`, contagens e `release_id`. `captured_at`, `source_as_of`, vigência da linha e futura publicação contAI são tempos distintos. `source_as_of` não participa do `release_id`, pois o portal muda “Vigente em” diariamente sem necessariamente mudar os registros; `source_act` e todo conteúdo normalizado participam.
+
+**Chaves e consulta:** a chave natural persistida será `(release_id, code)`. A consulta local usa o `ncm.jsonl` da release apontada por `state/ncm-current.json`; a futura consulta PostgreSQL receberá `code_digits`, `release_id` opcional e `valid_on` opcional. Até haver backfill histórico oficial, `valid_on` só filtra o conteúdo das releases capturadas e **não** prova cobertura histórica anterior.
+
+**Qualidade antes da release:** schema e UTF-8; formatos de código; unicidade de `code` e `code_digits`; descrição e ato obrigatórios; datas válidas e não invertidas; integridade da hierarquia; 14.000–25.000 entradas; pelo menos 9.000 subitens e 90 capítulos. Mudança fora desses limites fica em quarentena para revisão.
+
+### 12.5 Fluxo local implementado e plano curto
+
+Artefatos implementados em `packages/tax-data/`, sem banco remoto:
+
+1. **Concluído — bootstrap:** Python 3.12.15 fixado, `uv.lock`, pacote mínimo e CLI `contai-tax-data capture-ncm`.
+2. **Concluído — captura:** URL fixa oficial, identificação do cliente, timeout, tentativas totais, backoff exponencial com jitter e respeito a `Retry-After`.
+3. **Concluído — bronze/silver local:** bruto imutável por SHA-256, manifesto com cabeçalhos permitidos, normalização `ncm-v1`, quarentena e JSONL reproduzível.
+4. **Concluído — idempotência:** artefato idêntico não duplica; mudança apenas no “Vigente em” arquiva novo bruto sem release; mudança semântica cria release e diff.
+5. **Concluído — testes offline:** fixture pequena derivada da captura oficial e testes de parsing, schema, malformed, indisponibilidade/timeout, retry, vigência, duplicidade, regressão, quarentena, mudança e reexecução.
+6. **Próximo marco, não iniciado:** persistência PostgreSQL, migrações, grants/RLS e publicação governada pertencem ao Marco C e exigem ambiente/aprovação apropriados.
+
+Comandos locais padronizados:
+
+```powershell
+uv --cache-dir .uv-cache sync --locked --project packages/tax-data
+uv --cache-dir .uv-cache run --project packages/tax-data pytest
+uv --cache-dir .uv-cache run --project packages/tax-data ruff check packages/tax-data
+uv --cache-dir .uv-cache run --project packages/tax-data ruff format --check packages/tax-data
+uv --cache-dir .uv-cache run --project packages/tax-data mypy packages/tax-data/src
+uv --cache-dir .uv-cache run --project packages/tax-data contai-tax-data capture-ncm --output var/tax-data
+```
+
+O diretório `var/` é local e ignorado pelo Git. O armazenamento definitivo de originais grandes continua pendente; esta implementação não escolhe provedor, não cria custos e não altera Supabase, secrets, permissões ou produção.
 
 ---
 
