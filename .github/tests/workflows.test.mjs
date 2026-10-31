@@ -33,3 +33,12 @@ test("captura NCM é agendada e manual, sem acesso de publicação", async () =>
   assert.ok(workflow.jobs["capture-ncm"].steps.some((step) => step.uses?.startsWith("actions/upload-artifact@")));
   assert.ok(!workflow.jobs["capture-ncm"].steps.some((step) => step.run?.includes("publish-ncm")));
 });
+
+test("captura TIPI é manual, gera artefato e não publica no banco", async () => {
+  const workflow = await readWorkflow("capture-tipi.yml");
+
+  assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
+  assert.ok(workflow.jobs["capture-tipi"].steps.some((step) => step.run?.includes("capture-tipi")));
+  assert.ok(workflow.jobs["capture-tipi"].steps.some((step) => step.uses?.startsWith("actions/upload-artifact@")));
+  assert.ok(!workflow.jobs["capture-tipi"].steps.some((step) => step.run?.includes("publish-tipi")));
+});

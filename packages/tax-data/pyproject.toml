@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Pipeline tributaria rastreavel do contAI"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+  "openpyxl>=3.1,<4",
   "psycopg[binary]>=3.2,<4",
 ]
 
@@ -15,6 +16,7 @@ dev = [
   "mypy>=1.15,<2",
   "pytest>=8.3,<10",
   "ruff>=0.12,<1",
+  "types-openpyxl>=3.1,<4",
 ]
 
 [build-system]

@@ -6,15 +6,18 @@ from datetime import UTC, datetime
 import pytest
 
 from contai_tax_data.source import FetchError, SourceClient, TransportResponse
+from contai_tax_data.tipi import TIPI_ACCEPT, TIPI_SOURCE_URL
 
 
 class SequenceTransport:
     def __init__(self, outcomes: list[TransportResponse | Exception]) -> None:
         self.outcomes = outcomes
         self.calls = 0
+        self.last_headers: Mapping[str, str] = {}
 
     def get(self, url: str, headers: Mapping[str, str], timeout_seconds: float) -> TransportResponse:
-        del url, headers, timeout_seconds
+        del url, timeout_seconds
+        self.last_headers = headers
         outcome = self.outcomes[self.calls]
         self.calls += 1
         if isinstance(outcome, Exception):
@@ -76,3 +79,13 @@ def test_permanent_http_error_is_not_retried() -> None:
         client.fetch("https://example.test/ncm")
 
     assert transport.calls == 1
+
+
+def test_xlsx_source_accept_header_is_explicit() -> None:
+    transport = SequenceTransport([response(200, headers={"content-type": "application/octet-stream"}, body=b"PK")])
+    client = SourceClient(accept=TIPI_ACCEPT, attempts=1, transport=transport)
+
+    artifact = client.fetch(TIPI_SOURCE_URL)
+
+    assert artifact.body == b"PK"
+    assert transport.last_headers["Accept"] == TIPI_ACCEPT

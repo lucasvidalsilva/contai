@@ -88,6 +88,7 @@ class SourceClient:
     def __init__(
         self,
         *,
+        accept: str = "application/json",
         attempts: int = 3,
         timeout_seconds: float = 30.0,
         base_delay_seconds: float = 1.0,
@@ -101,6 +102,7 @@ class SourceClient:
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds deve ser positivo")
         self._attempts = attempts
+        self._accept = accept
         self._timeout_seconds = timeout_seconds
         self._base_delay_seconds = base_delay_seconds
         self._transport = transport or UrllibTransport()
@@ -109,7 +111,7 @@ class SourceClient:
         self._now = now
 
     def fetch(self, url: str) -> RetrievedArtifact:
-        headers = {"Accept": "application/json", "User-Agent": USER_AGENT}
+        headers = {"Accept": self._accept, "User-Agent": USER_AGENT}
         last_error = "falha desconhecida"
         for attempt in range(1, self._attempts + 1):
             response: TransportResponse | None = None
