@@ -191,6 +191,7 @@ def ingest_tipi_artifact(
     release_created = _write_once(snapshot_path, snapshot)
     manifest = {
         "artifact_sha256": artifact_sha,
+        "created_at": _timestamp(artifact.captured_at),
         "contract_version": TIPI_CONTRACT_VERSION,
         "entry_count": len(dataset.entries),
         "ex_count": sum(entry.ex_code is not None for entry in dataset.entries),

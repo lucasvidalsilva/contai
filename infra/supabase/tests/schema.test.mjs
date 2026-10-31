@@ -45,16 +45,18 @@ test("migração cria fronteira privada e leitura pública governada", async () 
     { relname: "dataset_current" },
     { relname: "dataset_release" },
     { relname: "ncm_entry" },
+    { relname: "tipi_entry" },
   ]);
 
-  const view = await db.query(`
+  const views = await db.query(`
     select c.reloptions
     from pg_class as c
     join pg_namespace as n on n.oid = c.relnamespace
-    where n.nspname = 'tax_public' and c.relname = 'ncm_current'
+    where n.nspname = 'tax_public' and c.relname in ('ncm_current', 'tipi_current')
+    order by c.relname
   `);
-  assert.equal(view.rows.length, 1);
-  assert.ok(view.rows[0].reloptions.includes("security_invoker=true"));
+  assert.equal(views.rows.length, 2);
+  assert.ok(views.rows.every((view) => view.reloptions.includes("security_invoker=true")));
 
   await db.exec("set role tax_ingest_writer");
   await db.exec(`
@@ -74,12 +76,26 @@ test("migração cria fronteira privada e leitura pública governada", async () 
     );
     insert into tax_public.dataset_current (domain, release_id, updated_at)
     values ('ncm', repeat('a', 64), now());
+
+    insert into tax_public.dataset_release (
+      release_id, domain, contract_version, source_act, source_as_of,
+      artifact_sha256, snapshot_sha256, entry_count, leaf_count, published_at
+    ) values (
+      repeat('d', 64), 'tipi', 'tipi-v1', 'Decreto teste', null,
+      repeat('e', 64), repeat('f', 64), 1, 0, now()
+    );
+    insert into tax_public.tipi_entry (release_id, ncm_code, ex_key, ex_code, description, ipi_rate)
+    values (repeat('d', 64), '0101.21.00', '', null, 'Reprodutores de raça pura', 'NT');
+    insert into tax_public.dataset_current (domain, release_id, updated_at)
+    values ('tipi', repeat('d', 64), now());
   `);
   await expectDenied(() => db.exec("delete from tax_public.dataset_current where domain = 'ncm'"));
 
   await db.exec("reset role; set role anon");
   const current = await db.query("select code, description from tax_public.ncm_current");
   assert.deepEqual(current.rows, [{ code: "01", description: "Animais vivos." }]);
+  const currentTipi = await db.query("select ncm_code, ex_code, ipi_rate from tax_public.tipi_current");
+  assert.deepEqual(currentTipi.rows, [{ ncm_code: "0101.21.00", ex_code: null, ipi_rate: "NT" }]);
   await expectDenied(() => db.query("select * from tax_ingest.source_registry"));
   await expectDenied(() =>
     db.exec("insert into tax_public.dataset_current (domain, release_id, updated_at) values ('ncm', repeat('a', 64), now())"),

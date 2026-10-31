@@ -1,7 +1,7 @@
 # Etapa 01 — Pipeline tributária
 
 > **contAI · Especificação de execução v2.0 · 30/10/2026**  
-> **Status:** NCM capturada, validada, versionada e publicada no Supabase dev; Marco D tem CI offline, captura diária NCM e captura local/manual TIPI. TIPI ainda não é publicada no Supabase. Outras fontes permanecem em investigação ou bloqueadas.
+> **Status:** NCM capturada, validada, versionada e publicada no Supabase dev; TIPI tem captura, staging e publicação implementados localmente, com migração e testes PGlite. A migração TIPI ainda não foi aplicada no Supabase remoto e TIPI não está publicada lá. IBS/CBS, CEST e fontes normativas seguem pendentes ou bloqueadas.
 > **Escopo autorizado:** exclusivamente a plataforma de dados tributários. Motor fiscal, desktop, landing page, IA e MCP permanecem fora desta etapa.
 
 ## 1. Objetivo
@@ -312,7 +312,7 @@ Levantamento realizado em **30/10/2026**. URLs e contagens abaixo são evidênci
 | NCM — Portal Único Siscomex | Baixa o JSON vigente, remove do resultado a data diária, converte `31/12/9999` em fim aberto, ordena e compara CSV. | Contrato JSON estrito, bruto imutável por SHA-256, normalização tipada, hierarquia pelo ancestral existente, release por hash semântico e JSONL local. | Endpoint, manual, campos e limitação ao vigente: **confirmados na origem**. Estratégia da referência: **observada apenas na referência**. | Cabeçalho `Vigente em` muda sem mudança tributária; download não traz histórico passado/futuro. | **Publicado no Supabase dev**; publicação automatizada continua desativada. |
 | IBS/CBS — SVRS/Conformidade Fácil | Extrai `dadosOriginais` embutido no HTML e gera CST, cClassTrib e vínculos NCM/NBS. | Preferir os serviços oficiais `classTrib` e `anexos`; só recorrer a HTML após contrato e termos confirmados. Modelar vínculos muitos-para-muitos e condições. | Página, exportações e URLs de serviços v1.00: **confirmados na origem**. Estrutura interna do JavaScript: **observada apenas na referência**. | Serviço de API requer TLS 1.2 e certificado cliente ICP-Brasil; a orientação oficial limita a frequência a GET diário por empresa. | **Pendente**; não armazenar certificado em CI sem configuração aprovada. Avaliar exportação pública manual como alternativa. |
 | CEST — CONFAZ, Convênio ICMS 142/18 | Lê tabelas HTML, ignora linhas marcadas como redação antiga e usa `(CEST, NCM)` para linhas. | Preservar original e notas legais; separar CEST, segmento e relação CEST–NCM com vigência verificável. | Convênio e tabelas acessíveis: **confirmados na origem**. Regras de classes HTML antigas: **observadas apenas na referência**. | HTML compilado irregular; revogação e efeitos não são campos uniformes por linha. | **Não implementar neste marco**; exigir fixtures por época e revisão jurídica de vigência. |
-| TIPI — Receita Federal | Lê XLSX, filtra linhas de produto e usa `(NCM, EX)`; toma o último ato da capa como atualização. | Parser independente XLSX `tipi-v1`, linhas por `(NCM, EX)`, alíquota textual/decimal, release por hash de conteúdo e ato de origem. Captura local/manual; sem vigência inferida. | Página, XLSX, cabeçalhos e amostra de 31/10/2026: **confirmados na origem**. Heurística do último ato: **observada apenas na referência**. | Notas de seção/capítulo e efeitos dos atos não são estruturados por linha; uma alíquota está vazia no snapshot atual e é preservada como nula. | **Implementação local parcial**; falta contrato SQL, publicação governada e teste remoto. |
+| TIPI — Receita Federal | Lê XLSX, filtra linhas de produto e usa `(NCM, EX)`; toma o último ato da capa como atualização. | Parser independente XLSX `tipi-v1`, staging privado, publicação transacional versionada e consulta `tipi_current`; nenhuma vigência inferida. | Página, XLSX, cabeçalhos e amostra de 31/10/2026: **confirmados na origem**. Heurística do último ato: **observada apenas na referência**. | Notas de seção/capítulo e efeitos dos atos não são estruturados por linha; uma alíquota está vazia no snapshot atual e é preservada como nula. | **Implementação local concluída e testada em PGlite**; migração TIPI ainda não aplicada no projeto Supabase remoto. |
 | Leis federais — Planalto | Converte HTML compilado em Markdown, mantendo texto riscado; monitora catálogo explícito. | Futuro modelo de ato, dispositivo, versão e remissão; guardar HTML e não inferir revogação pelo estilo. | Textos compilados individuais: **confirmados na origem**. Conversão e marcações antigas: **observadas apenas na referência**. | Charset legado, bloqueio automatizado, tabelas irregulares e vigências textuais. | **Não implementar neste marco**; conteúdo exige curadoria. |
 | CONFAZ — convênios, protocolos e ajustes | Descobre páginas por sitemap/`lastmod`, converte HTML e relata bloqueio geográfico em runners externos. | Validar semântica de `lastmod`, limitar concorrência e volume; não usar proxy sem aprovação. | Sitemap e página do Convênio 142 acessíveis no teste: **confirmados na origem**. Bloqueio fora do Brasil: **observado apenas na referência**. | Restrição geográfica pode impedir GitHub Actions; `lastmod` pode não equivaler a mudança normativa. | **Não implementar neste marco**; manter `em investigação`. |
 | Descoberta de novas normas — índices do Planalto | Lê o quadro de leis complementares e classifica ementas candidatas; abre issue para curadoria. | Descoberta apenas cria candidato, nunca publicação automática; ampliar fontes somente após acesso oficial estável. | Quadro oficial existe, mas bloqueou/expirou nos testes automatizados: **confirmado na origem com problema de acesso**. Classificador de ementa: **observado apenas na referência**. | Falsos positivos/negativos e bloqueio anti-automação. | **Bloqueado para automação atual**; não contornar controles. |
@@ -366,7 +366,7 @@ Entrada estrita: XLSX oficial da Receita Federal, aba com cabeçalho `NCM`, `EX`
 
 A chave do snapshot é `(ncm_code, ex_code)`. O `release_id` considera o hash do JSONL normalizado e o texto da capa com os atos/base legal. `captured_at`, hash do XLSX, ato(s) e conteúdo são metadados distintos. A planilha não informa vigência individual uniforme; o contrato **não atribui vigência** às linhas e não representa histórico anterior.
 
-Qualidade: cabeçalho esperado; XLSX válido; unicidade NCM/EX; descrição obrigatória; entre 8.000 e 14.000 itens; ao menos 500 linhas EX; no máximo 10 alíquotas vazias. No snapshot oficial de `2026-10-31`: 11.103 itens, 582 linhas EX e uma alíquota vazia preservada. O bruto e os snapshots são locais em `var/tax-data/tipi/`; não há staging/publicação PostgreSQL TIPI.
+Qualidade: cabeçalho esperado; XLSX válido; unicidade NCM/EX; descrição obrigatória; entre 8.000 e 14.000 itens; ao menos 500 linhas EX; no máximo 10 alíquotas vazias. No snapshot oficial de `2026-10-31`: 11.103 itens, 582 linhas EX e uma alíquota vazia preservada. O bruto e os snapshots ficam em `var/tax-data/tipi/`; os comandos `stage-tipi` e `publish-tipi` carregam e publicam uma release no PostgreSQL configurado. O staging revalida hashes, contrato, contagens e qualidade antes de gravar; a troca do ponteiro público ocorre na mesma transação da publicação. A migração `20261031120000_add_tipi_dataset.sql` está apenas no repositório: **não foi aplicada remotamente**.
 
 ### 12.6 Fluxo local implementado e plano curto
 
@@ -379,8 +379,8 @@ Artefatos implementados em `packages/tax-data/`, com banco remoto somente no amb
 5. **Concluído — testes offline:** fixture pequena derivada da captura oficial e testes de parsing, schema, malformed, indisponibilidade/timeout, retry, vigência, duplicidade, regressão, quarentena, mudança e reexecução.
 6. **Concluído localmente — Marco C:** migração, staging privado, controles de qualidade, publicação transacional, consulta pública versionada, grants/RLS e testes de acesso e rollback.
 7. **Concluído — Supabase dev:** migrations e configuração da Data API aplicadas após `dry-run`; NCM validada, staged e publicada; consultas SQL, RLS, grants, acesso HTTP, idempotência e advisors verificados.
-8. **Concluído parcialmente — Marco D:** CI offline em pull requests e pushes para `main`; captura NCM manual/diária e TIPI manual, com resumo e artefatos retidos por 14 dias. Ambas validam e versionam localmente; nenhuma escreve no banco. A release válida no Supabase permanece inalterada até publicação manual aprovada.
-9. **Concluído localmente — TIPI parcial:** captura oficial XLSX, contrato `tipi-v1`, normalização de NCM/EX/descrição/alíquota, arquivo bruto e releases locais imutáveis, diff e quarentena. Publicação SQL ainda não implementada.
+8. **Concluído parcialmente — Marco D:** CI offline em pull requests e pushes para `main`; captura NCM manual/diária e TIPI manual, com resumo e artefatos retidos por 14 dias. Capturas não escrevem no banco; publicação continua uma ação explícita.
+9. **Concluído localmente — TIPI:** captura oficial XLSX, contrato `tipi-v1`, normalização de NCM/EX/descrição/alíquota, arquivo bruto e releases locais imutáveis, diff, quarentena, migração SQL, staging privado, publicação transacional, consulta pública e testes locais de idempotência, autorização e rollback. A migração não foi aplicada no Supabase remoto.
 
 Comandos locais padronizados:
 
@@ -392,10 +392,14 @@ uv --cache-dir .uv-cache run --project packages/tax-data ruff format --check pac
 uv --cache-dir .uv-cache run --project packages/tax-data mypy packages/tax-data/src
 uv --cache-dir .uv-cache run --project packages/tax-data contai-tax-data capture-ncm --output var/tax-data
 uv --cache-dir .uv-cache run --project packages/tax-data contai-tax-data capture-tipi --output var/tax-data
+uv --cache-dir .uv-cache run --project packages/tax-data contai-tax-data stage-tipi --output var/tax-data --release-id <release_id>
+uv --cache-dir .uv-cache run --project packages/tax-data contai-tax-data publish-tipi <release_id>
 npm ci --cache .npm-cache
 npm run test:db-schema
 npm run test:db-integration
 ```
+
+Os comandos `stage-tipi` e `publish-tipi` exigem conexão PostgreSQL explícita e que a migration TIPI esteja aplicada no banco de destino. Não execute contra o projeto compartilhado até aprovar e aplicar essa migration.
 
 O diretório `var/` é local e ignorado pelo Git. O armazenamento definitivo dos originais permanece pendente; workflows guardam artefatos de execução por 14 dias no GitHub Actions. Capturas não acessam Supabase, não alteram a release publicada e não usam secrets.
 

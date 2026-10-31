@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from openpyxl import Workbook
 
+from contai_tax_data.postgres import load_local_tipi_release
 from contai_tax_data.source import RetrievedArtifact
 from contai_tax_data.tipi import TIPI_SOURCE_URL, TipiContractError
 from contai_tax_data.tipi_storage import ingest_tipi_artifact
@@ -88,3 +89,29 @@ def test_schema_failure_is_quarantined_and_keeps_previous_release(tmp_path: Path
     assert pointer["release_id"] == valid.release_id
     assert len(list((tmp_path / "releases").iterdir())) == 1
     assert len(list((tmp_path / "quarantine").glob("*.json"))) == 1
+
+
+def test_local_release_is_reverified_before_database_staging(tmp_path: Path) -> None:
+    result = ingest(workbook_bytes(), tmp_path)
+    loaded = load_local_tipi_release(
+        tmp_path,
+        result.release_id,
+        minimum_entries=3,
+        maximum_entries=4,
+        minimum_ex_entries=1,
+    )
+
+    assert loaded.release_id == result.release_id
+    assert loaded.snapshot_sha256
+    assert len(loaded.dataset.entries) == 3
+
+    raw_path = tmp_path / "artifacts" / "sha256" / f"{result.artifact_sha256}.xlsx"
+    raw_path.write_bytes(raw_path.read_bytes() + b"tampering")
+    with pytest.raises(ValueError, match="hash do XLSX bruto diverge"):
+        load_local_tipi_release(
+            tmp_path,
+            result.release_id,
+            minimum_entries=3,
+            maximum_entries=4,
+            minimum_ex_entries=1,
+        )

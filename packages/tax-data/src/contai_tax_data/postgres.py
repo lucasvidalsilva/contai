@@ -15,10 +15,20 @@ from psycopg.types.json import Jsonb
 
 from contai_tax_data.ncm import DEFAULT_QUALITY_POLICY, NcmDataset, QualityPolicy, parse_ncm_json, validate_ncm
 from contai_tax_data.source import NCM_SOURCE_URL
+from contai_tax_data.tipi import (
+    TIPI_SOURCE_URL,
+    TipiDataset,
+    parse_tipi_xlsx,
+    tipi_release_id,
+    tipi_snapshot,
+    validate_tipi,
+)
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _SOURCE_KEY = "siscomex-ncm"
 _QUALITY_CHECKS = frozenset({"entry_count", "leaf_count", "quality_policy", "release_identity", "snapshot_sha256"})
+_TIPI_SOURCE_KEY = "rfb-tipi"
+_TIPI_QUALITY_CHECKS = frozenset({"entry_count", "ex_count", "quality_policy", "release_identity", "snapshot_sha256"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +50,25 @@ class LocalNcmRelease:
     raw_path: str
     response_headers: dict[str, str]
     dataset: NcmDataset
+
+
+@dataclass(frozen=True, slots=True)
+class LocalTipiRelease:
+    release_id: str
+    artifact_sha256: str
+    snapshot_sha256: str
+    contract_version: str
+    source_act: str
+    created_at: datetime
+    captured_at: datetime
+    requested_url: str
+    final_url: str
+    http_status: int
+    content_type: str
+    byte_size: int
+    raw_path: str
+    response_headers: dict[str, str]
+    dataset: TipiDataset
 
 
 @dataclass(frozen=True, slots=True)
@@ -193,6 +222,101 @@ def load_local_ncm_release(output_dir: Path, release_id: str | None = None) -> L
         requested_url=_text(artifact_manifest, "requested_url", "manifesto do artefato"),
         final_url=_text(artifact_manifest, "final_url", "manifesto do artefato"),
         http_status=_integer(artifact_manifest, "http_status", "manifesto do artefato"),
+        content_type=content_type,
+        byte_size=byte_size,
+        raw_path=raw_path,
+        response_headers={key: str(value) for key, value in headers.items()},
+        dataset=dataset,
+    )
+
+
+def load_local_tipi_release(
+    output_dir: Path,
+    release_id: str | None = None,
+    *,
+    minimum_entries: int = 8_000,
+    maximum_entries: int = 14_000,
+    minimum_ex_entries: int = 500,
+    maximum_missing_rates: int = 10,
+) -> LocalTipiRelease:
+    """Revalida o XLSX bruto, o contrato e o snapshot antes de gravar no PostgreSQL."""
+    root = output_dir.resolve()
+    if release_id is None:
+        pointer = _read_json(root / "state" / "tipi-current.json", "ponteiro TIPI")
+        release_id = _text(pointer, "release_id", "ponteiro TIPI")
+    if not _SHA256.fullmatch(release_id):
+        raise ValueError("release_id deve ser SHA-256 hexadecimal")
+
+    release_manifest = _read_json(root / "releases" / release_id / "release.json", "manifesto da release TIPI")
+    if _text(release_manifest, "release_id", "manifesto da release TIPI") != release_id:
+        raise ValueError("release_id diverge do manifesto TIPI")
+    artifact_sha256 = _text(release_manifest, "artifact_sha256", "manifesto da release TIPI")
+    snapshot_sha256 = _text(release_manifest, "snapshot_sha256", "manifesto da release TIPI")
+    if not _SHA256.fullmatch(artifact_sha256) or not _SHA256.fullmatch(snapshot_sha256):
+        raise ValueError("manifesto TIPI contem hash SHA-256 invalido")
+
+    snapshot = (root / "releases" / release_id / "tipi.jsonl").read_bytes()
+    if hashlib.sha256(snapshot).hexdigest() != snapshot_sha256:
+        raise ValueError("hash do snapshot TIPI diverge do manifesto")
+    artifact_manifest = _read_json(
+        root / "artifacts" / "manifests" / f"{artifact_sha256}.json", "manifesto do artefato TIPI"
+    )
+    if _text(artifact_manifest, "artifact_sha256", "manifesto do artefato TIPI") != artifact_sha256:
+        raise ValueError("hash do artefato TIPI diverge do manifesto")
+    if _text(artifact_manifest, "status", "manifesto do artefato TIPI") != "accepted":
+        raise ValueError("somente artefatos TIPI aceitos podem ser persistidos")
+
+    raw_path = _text(artifact_manifest, "raw_path", "manifesto do artefato TIPI")
+    raw = _safe_local_path(root, raw_path, "raw_path").read_bytes()
+    if hashlib.sha256(raw).hexdigest() != artifact_sha256:
+        raise ValueError("hash do XLSX bruto diverge do manifesto")
+    byte_size = _integer(artifact_manifest, "byte_size", "manifesto do artefato TIPI")
+    if len(raw) != byte_size:
+        raise ValueError("tamanho do XLSX bruto diverge do manifesto")
+
+    dataset = parse_tipi_xlsx(raw)
+    validate_tipi(
+        dataset,
+        minimum_entries=minimum_entries,
+        maximum_entries=maximum_entries,
+        minimum_ex_entries=minimum_ex_entries,
+        maximum_missing_rates=maximum_missing_rates,
+    )
+    if tipi_release_id(dataset) != release_id or tipi_snapshot(dataset) != snapshot:
+        raise ValueError("release TIPI nao e reproduzivel a partir do XLSX bruto")
+    if dataset.source_act != _text(release_manifest, "source_act", "manifesto da release TIPI"):
+        raise ValueError("atos da fonte TIPI divergem do manifesto")
+    if len(dataset.entries) != _integer(release_manifest, "entry_count", "manifesto da release TIPI"):
+        raise ValueError("contagem da release TIPI diverge do manifesto")
+    ex_count = sum(entry.ex_code is not None for entry in dataset.entries)
+    if ex_count != _integer(release_manifest, "ex_count", "manifesto da release TIPI"):
+        raise ValueError("contagem EX da release TIPI diverge do manifesto")
+
+    headers = _object(artifact_manifest.get("response_headers"), "response_headers TIPI")
+    if not all(isinstance(value, str) for value in headers.values()):
+        raise ValueError("response_headers TIPI deve conter somente textos")
+    content_type = str(headers.get("content-type", "")).split(";", maxsplit=1)[0].strip().lower()
+    if content_type not in {
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/octet-stream",
+        "application/xlsx",
+    }:
+        raise ValueError("manifesto nao confirma Content-Type XLSX TIPI")
+    captured_at = _timestamp(_text(artifact_manifest, "captured_at", "manifesto do artefato TIPI"), "captured_at")
+    created_value = release_manifest.get("created_at")
+    created_at = _timestamp(created_value, "created_at") if isinstance(created_value, str) else captured_at
+
+    return LocalTipiRelease(
+        release_id=release_id,
+        artifact_sha256=artifact_sha256,
+        snapshot_sha256=snapshot_sha256,
+        contract_version=_text(release_manifest, "contract_version", "manifesto da release TIPI"),
+        source_act=dataset.source_act,
+        created_at=created_at,
+        captured_at=captured_at,
+        requested_url=_text(artifact_manifest, "requested_url", "manifesto do artefato TIPI"),
+        final_url=_text(artifact_manifest, "final_url", "manifesto do artefato TIPI"),
+        http_status=_integer(artifact_manifest, "http_status", "manifesto do artefato TIPI"),
         content_type=content_type,
         byte_size=byte_size,
         raw_path=raw_path,
@@ -519,3 +643,305 @@ def publish_ncm_release(connection: Connection[Any], release_id: str) -> Publica
         entry_count=entry_count,
         published_at=published_at,
     )
+
+
+def _upsert_tipi_source(connection: Connection[Any], local: LocalTipiRelease) -> None:
+    connection.execute(
+        """
+        insert into tax_ingest.source_registry (
+          source_key, agency, dataset_name, canonical_url, source_format,
+          contract_version, parser_version, updated_at
+        ) values (%s, %s, %s, %s, %s, %s, %s, %s)
+        on conflict (source_key) do update set
+          agency = excluded.agency,
+          dataset_name = excluded.dataset_name,
+          canonical_url = excluded.canonical_url,
+          source_format = excluded.source_format,
+          contract_version = excluded.contract_version,
+          parser_version = excluded.parser_version,
+          updated_at = excluded.updated_at
+        """,
+        (
+            _TIPI_SOURCE_KEY,
+            "Receita Federal do Brasil",
+            "Tabela de Incidencia do Imposto sobre Produtos Industrializados",
+            TIPI_SOURCE_URL,
+            local.content_type,
+            local.contract_version,
+            "contai_tax_data.tipi:tipi-v1",
+            datetime.now(UTC),
+        ),
+    )
+    connection.execute(
+        """
+        insert into tax_ingest.source_artifact (
+          source_key, artifact_sha256, requested_url, final_url, captured_at,
+          http_status, content_type, byte_size, raw_path, response_headers, status
+        ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'accepted')
+        on conflict (source_key, artifact_sha256) do nothing
+        """,
+        (
+            _TIPI_SOURCE_KEY,
+            local.artifact_sha256,
+            local.requested_url,
+            local.final_url,
+            local.captured_at,
+            local.http_status,
+            local.content_type,
+            local.byte_size,
+            local.raw_path,
+            Jsonb(local.response_headers),
+        ),
+    )
+
+
+def _record_failed_tipi_run(
+    connection: Connection[Any], local: LocalTipiRelease, started_at: datetime, error: Exception
+) -> None:
+    try:
+        with connection.transaction():
+            _configure_transaction(connection, "contai:tipi:failure-log")
+            _upsert_tipi_source(connection, local)
+            connection.execute(
+                """
+                insert into tax_ingest.ingestion_run (
+                  source_key, artifact_sha256, release_id, started_at, completed_at, status, error_message
+                ) values (%s, %s, %s, %s, %s, 'failed', %s)
+                """,
+                (
+                    _TIPI_SOURCE_KEY,
+                    local.artifact_sha256,
+                    local.release_id,
+                    started_at,
+                    datetime.now(UTC),
+                    f"{type(error).__name__}: {error}"[:4000],
+                ),
+            )
+    except Exception as log_error:  # pragma: no cover - depende de falha dupla no banco
+        error.add_note(f"nao foi possivel registrar a falha TIPI: {log_error}")
+
+
+def stage_tipi_release(
+    connection: Connection[Any],
+    output_dir: Path,
+    release_id: str | None = None,
+    *,
+    minimum_entries: int = 8_000,
+    maximum_entries: int = 14_000,
+    minimum_ex_entries: int = 500,
+    maximum_missing_rates: int = 10,
+) -> StageResult:
+    """Persiste candidato TIPI privado após revalidar bruto e release local."""
+    local = load_local_tipi_release(
+        output_dir,
+        release_id,
+        minimum_entries=minimum_entries,
+        maximum_entries=maximum_entries,
+        minimum_ex_entries=minimum_ex_entries,
+        maximum_missing_rates=maximum_missing_rates,
+    )
+    validate_tipi(
+        local.dataset,
+        minimum_entries=minimum_entries,
+        maximum_entries=maximum_entries,
+        minimum_ex_entries=minimum_ex_entries,
+        maximum_missing_rates=maximum_missing_rates,
+    )
+    started_at = datetime.now(UTC)
+    entry_count = len(local.dataset.entries)
+    ex_count = sum(entry.ex_code is not None for entry in local.dataset.entries)
+    quality_policy = {
+        "maximum_entries": maximum_entries,
+        "maximum_missing_rates": maximum_missing_rates,
+        "minimum_entries": minimum_entries,
+        "minimum_ex_entries": minimum_ex_entries,
+    }
+    try:
+        with connection.transaction():
+            _configure_transaction(connection, "contai:tipi:stage")
+            _upsert_tipi_source(connection, local)
+            inserted = connection.execute(
+                """
+                insert into tax_ingest.dataset_release (
+                  release_id, source_key, artifact_sha256, domain, contract_version,
+                  source_schema_version, source_act, source_as_of, snapshot_sha256,
+                  entry_count, leaf_count, metadata, created_at
+                ) values (%s, %s, %s, 'tipi', %s, %s, %s, null, %s, %s, 0, %s, %s)
+                on conflict (release_id) do nothing
+                returning release_id
+                """,
+                (
+                    local.release_id,
+                    _TIPI_SOURCE_KEY,
+                    local.artifact_sha256,
+                    local.contract_version,
+                    local.contract_version,
+                    local.source_act,
+                    local.snapshot_sha256,
+                    entry_count,
+                    Jsonb({"raw_path": local.raw_path, "ex_count": ex_count}),
+                    local.created_at,
+                ),
+            ).fetchone()
+            release_created = inserted is not None
+
+            rows = (
+                (
+                    local.release_id,
+                    entry.ncm_code,
+                    entry.ex_code or "",
+                    entry.ex_code,
+                    entry.description,
+                    entry.ipi_rate,
+                )
+                for entry in local.dataset.entries
+            )
+            with connection.cursor() as cursor:
+                cursor.executemany(
+                    """
+                    insert into tax_ingest.tipi_entry (
+                      release_id, ncm_code, ex_key, ex_code, description, ipi_rate
+                    ) values (%s, %s, %s, %s, %s, %s)
+                    on conflict (release_id, ncm_code, ex_key) do nothing
+                    """,
+                    rows,
+                )
+            persisted_count = connection.execute(
+                "select count(*) from tax_ingest.tipi_entry where release_id = %s", (local.release_id,)
+            ).fetchone()
+            if persisted_count is None or persisted_count[0] != entry_count:
+                raise RuntimeError("contagem persistida TIPI diverge da release local")
+
+            quality_results = {
+                "entry_count": {"observed": entry_count},
+                "ex_count": {"observed": ex_count},
+                "quality_policy": quality_policy,
+                "release_identity": {"release_id": local.release_id},
+                "snapshot_sha256": {"snapshot_sha256": local.snapshot_sha256},
+            }
+            with connection.cursor() as cursor:
+                cursor.executemany(
+                    """
+                    insert into tax_ingest.quality_result (release_id, check_name, passed, observed)
+                    values (%s, %s, true, %s)
+                    on conflict (release_id, check_name) do update set
+                      passed = excluded.passed,
+                      observed = excluded.observed,
+                      evaluated_at = now()
+                    """,
+                    (
+                        (local.release_id, check_name, Jsonb(observed))
+                        for check_name, observed in quality_results.items()
+                    ),
+                )
+            connection.execute(
+                """
+                insert into tax_ingest.ingestion_run (
+                  source_key, artifact_sha256, release_id, started_at, completed_at, status
+                ) values (%s, %s, %s, %s, %s, 'succeeded')
+                """,
+                (_TIPI_SOURCE_KEY, local.artifact_sha256, local.release_id, started_at, datetime.now(UTC)),
+            )
+    except Exception as error:
+        _record_failed_tipi_run(connection, local, started_at, error)
+        raise
+
+    return StageResult(
+        release_id=local.release_id,
+        release_created=release_created,
+        entry_count=entry_count,
+        leaf_count=0,
+    )
+
+
+def publish_tipi_release(connection: Connection[Any], release_id: str) -> PublicationResult:
+    """Publica TIPI aprovada atomically, sem atribuir vigência ausente na fonte."""
+    if not _SHA256.fullmatch(release_id):
+        raise ValueError("release_id deve ser SHA-256 hexadecimal")
+    with connection.transaction():
+        _configure_transaction(connection, "contai:tipi:publish")
+        release = connection.execute(
+            """
+            select status, entry_count, published_at
+            from tax_ingest.dataset_release
+            where release_id = %s and domain = 'tipi'
+            for update
+            """,
+            (release_id,),
+        ).fetchone()
+        if release is None:
+            raise ValueError(f"release TIPI inexistente: {release_id}")
+        status, entry_count, existing_published_at = release
+        checks = connection.execute(
+            "select check_name, passed from tax_ingest.quality_result where release_id = %s", (release_id,)
+        ).fetchall()
+        check_map = {str(name): bool(passed) for name, passed in checks}
+        if check_map.keys() != _TIPI_QUALITY_CHECKS or not all(check_map.values()):
+            raise RuntimeError("release TIPI nao possui todos os controles de qualidade aprovados")
+        private_count = connection.execute(
+            "select count(*) from tax_ingest.tipi_entry where release_id = %s", (release_id,)
+        ).fetchone()
+        if private_count is None or private_count[0] != entry_count:
+            raise RuntimeError("contagem privada TIPI diverge da release")
+
+        if status == "approved":
+            current = connection.execute(
+                "select release_id from tax_public.dataset_current where domain = 'tipi'"
+            ).fetchone()
+            if current is None or current[0] != release_id or existing_published_at is None:
+                raise RuntimeError("release TIPI aprovada diverge do ponteiro publico; requer reparo manual")
+            public_count = connection.execute(
+                "select count(*) from tax_public.tipi_entry where release_id = %s", (release_id,)
+            ).fetchone()
+            if public_count is None or public_count[0] != entry_count:
+                raise RuntimeError("release TIPI aprovada esta incompleta")
+            return PublicationResult(release_id, False, entry_count, existing_published_at)
+        if status != "candidate":
+            raise RuntimeError(f"status da release TIPI nao pode ser publicado: {status}")
+
+        published_at = datetime.now(UTC)
+        connection.execute(
+            """
+            insert into tax_public.dataset_release (
+              release_id, domain, contract_version, source_act, source_as_of,
+              artifact_sha256, snapshot_sha256, entry_count, leaf_count, published_at
+            )
+            select release_id, domain, contract_version, source_act, source_as_of,
+                   artifact_sha256, snapshot_sha256, entry_count, leaf_count, %s
+            from tax_ingest.dataset_release where release_id = %s
+            on conflict (release_id) do nothing
+            """,
+            (published_at, release_id),
+        )
+        connection.execute(
+            """
+            insert into tax_public.tipi_entry (
+              release_id, ncm_code, ex_key, ex_code, description, ipi_rate
+            )
+            select release_id, ncm_code, ex_key, ex_code, description, ipi_rate
+            from tax_ingest.tipi_entry where release_id = %s
+            on conflict (release_id, ncm_code, ex_key) do nothing
+            """,
+            (release_id,),
+        )
+        public_count = connection.execute(
+            "select count(*) from tax_public.tipi_entry where release_id = %s", (release_id,)
+        ).fetchone()
+        if public_count is None or public_count[0] != entry_count:
+            raise RuntimeError("copia publica TIPI ficou incompleta")
+        connection.execute(
+            """
+            insert into tax_public.dataset_current (domain, release_id, updated_at)
+            values ('tipi', %s, %s)
+            on conflict (domain) do update set
+              release_id = excluded.release_id,
+              updated_at = excluded.updated_at
+            """,
+            (release_id, published_at),
+        )
+        connection.execute(
+            "update tax_ingest.dataset_release set status = 'approved', published_at = %s where release_id = %s",
+            (published_at, release_id),
+        )
+
+    return PublicationResult(release_id, True, entry_count, published_at)
