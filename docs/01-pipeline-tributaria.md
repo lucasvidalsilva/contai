@@ -1,7 +1,7 @@
 # Etapa 01 — Pipeline tributária
 
 > **contAI · Especificação de execução v2.0 · 30/10/2026**  
-> **Status:** Marco A concluído; primeiro fluxo NCM do Marco B implementado e testado localmente; acesso remoto não iniciado.
+> **Status:** Marcos A e B concluídos para a NCM; Marco C implementado e testado em PostgreSQL 17 isolado, com validação no runtime Supabase e acesso remoto ainda não iniciados.
 > **Escopo autorizado:** exclusivamente a plataforma de dados tributários. Motor fiscal, desktop, landing page, IA e MCP permanecem fora desta etapa.
 
 ## 1. Objetivo
@@ -362,7 +362,8 @@ Artefatos implementados em `packages/tax-data/`, sem banco remoto:
 3. **Concluído — bronze/silver local:** bruto imutável por SHA-256, manifesto com cabeçalhos permitidos, normalização `ncm-v1`, quarentena e JSONL reproduzível.
 4. **Concluído — idempotência:** artefato idêntico não duplica; mudança apenas no “Vigente em” arquiva novo bruto sem release; mudança semântica cria release e diff.
 5. **Concluído — testes offline:** fixture pequena derivada da captura oficial e testes de parsing, schema, malformed, indisponibilidade/timeout, retry, vigência, duplicidade, regressão, quarentena, mudança e reexecução.
-6. **Próximo marco, não iniciado:** persistência PostgreSQL, migrações, grants/RLS e publicação governada pertencem ao Marco C e exigem ambiente/aprovação apropriados.
+6. **Concluído localmente — Marco C:** migração, staging privado, controles de qualidade, publicação transacional, consulta pública versionada, grants/RLS e testes de acesso e rollback.
+7. **Próximo passo seguro:** executar a mesma migração no runtime local completo do Supabase quando Docker estiver disponível; vincular ou alterar um projeto remoto continua sendo uma decisão separada.
 
 Comandos locais padronizados:
 
@@ -373,9 +374,37 @@ uv --cache-dir .uv-cache run --project packages/tax-data ruff check packages/tax
 uv --cache-dir .uv-cache run --project packages/tax-data ruff format --check packages/tax-data
 uv --cache-dir .uv-cache run --project packages/tax-data mypy packages/tax-data/src
 uv --cache-dir .uv-cache run --project packages/tax-data contai-tax-data capture-ncm --output var/tax-data
+npm ci --cache .npm-cache
+npm run test:db-schema
+npm run test:db-integration
 ```
 
 O diretório `var/` é local e ignorado pelo Git. O armazenamento definitivo de originais grandes continua pendente; esta implementação não escolhe provedor, não cria custos e não altera Supabase, secrets, permissões ou produção.
+
+### 12.6 Implementação local do Marco C
+
+A migração em `infra/supabase/migrations/` cria duas fronteiras:
+
+- `tax_ingest`: catálogo da fonte, artefatos, execuções, candidatos, resultados de qualidade e registros NCM. O schema não integra a lista da Data API e só concede escrita à role `tax_ingest_writer`, criada sem login, senha ou herança automática.
+- `tax_public`: histórico aprovado, ponteiro da release corrente, registros publicados e a view `ncm_current`. As tabelas têm RLS; `anon` e `authenticated` recebem somente `SELECT`; a view usa `security_invoker=true`.
+
+A configuração local expõe explicitamente `tax_public`, mantém `auto_expose_new_tables = false` e não abre `tax_ingest`. A aplicação remota dessa configuração, a associação de uma role de login a `tax_ingest_writer` e qualquer mudança de grants/RLS em projeto compartilhado não foram executadas.
+
+O módulo `contai_tax_data.postgres` reprocessa o JSON bruto, confere hashes, snapshot, identidade semântica e contagens antes do staging. A promoção adquire advisory lock transacional, exige todos os checks aprovados, copia a release para `tax_public`, confere a contagem e troca `dataset_current` na mesma transação. Repetições são idempotentes; uma falha antes da troca do ponteiro preserva integralmente a release anterior.
+
+Os testes de banco usam PostgreSQL 17 compilado para WebAssembly por PGlite e o protocolo PostgreSQL real para o `psycopg`. Eles aplicam a migração, exercitam duas cargas iguais, duas publicações iguais, leitura como `anon`, negação do schema privado e uma falha injetada após a cópia pública para comprovar rollback. Isso valida o núcleo PostgreSQL, mas não substitui um `supabase db reset`: PostgREST, Auth, Storage e o empacotamento completo da plataforma ainda não foram executados neste Windows sem Docker.
+
+A prova adicional com a captura oficial arquivada em 30/10/2026 persistiu e publicou 15.157 registros e 10.516 subitens, mantendo as mesmas contagens na view corrente. O teste reduzido permanece no repositório para CI; o corpus oficial continua em `var/`, fora do Git.
+
+Uso manual, somente depois de migrar um banco de desenvolvimento e configurar a associação da credencial de ingestão à role sem login:
+
+```powershell
+$env:CONTAI_DATABASE_URL = '<conexao-do-banco-de-desenvolvimento>'
+uv --cache-dir .uv-cache run --project packages/tax-data contai-tax-data stage-ncm --output var/tax-data
+uv --cache-dir .uv-cache run --project packages/tax-data contai-tax-data publish-ncm <release_id>
+```
+
+Não registrar a URL de conexão em Git, argumentos de linha de comando ou logs. A captura e o staging não publicam automaticamente; `publish-ncm` é uma ação explícita e separada.
 
 ---
 

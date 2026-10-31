@@ -3,7 +3,9 @@ name = "contai-tax-data"
 version = "0.1.0"
 description = "Pipeline tributaria rastreavel do contAI"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+  "psycopg[binary]>=3.2,<4",
+]
 
 [project.scripts]
 contai-tax-data = "contai_tax_data.cli:main"

@@ -1,0 +1,13 @@
+{
+  "name": "contai-infra",
+  "private": true,
+  "scripts": {
+    "test:db-schema": "node --test infra/supabase/tests/schema.test.mjs",
+    "test:db-integration": "node infra/supabase/tests/run-integration.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.13",
+    "@electric-sql/pglite-socket": "0.2.16",
+    "supabase": "2.122.0"
+  }
+}
