@@ -11,6 +11,7 @@ from pathlib import Path
 
 import psycopg
 
+from contai_tax_data.cest_capture import capture_cest
 from contai_tax_data.ibs_cbs import IBS_CBS_ACCEPT
 from contai_tax_data.ibs_cbs_storage import capture_ibs_cbs
 from contai_tax_data.pipeline import capture_ncm
@@ -47,6 +48,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ibs_cbs.add_argument("--output", type=Path, default=Path("var/tax-data"))
     ibs_cbs.add_argument("--timeout", type=float, default=45.0, dest="timeout_seconds")
+
+    cest = commands.add_parser("capture-cest", help="captura e arquiva o Convênio ICMS 142/18 sem inferir vigência")
+    cest.add_argument("--output", type=Path, default=Path("var/tax-data"))
+    cest.add_argument("--timeout", type=float, default=45.0, dest="timeout_seconds")
 
     stage_ibs_cbs = commands.add_parser(
         "stage-ibs-cbs", help="revalida e persiste uma release IBS/CBS no schema privado"
@@ -96,6 +101,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         client = SourceClient(accept=IBS_CBS_ACCEPT, attempts=1, timeout_seconds=args.timeout_seconds)
         ibs_cbs_result = capture_ibs_cbs(args.output / "ibs-cbs", client=client)
         print(json.dumps(asdict(ibs_cbs_result), ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "capture-cest":
+        client = SourceClient(accept="text/html", attempts=1, timeout_seconds=args.timeout_seconds)
+        cest_result = capture_cest(args.output / "cest", client=client)
+        print(json.dumps(asdict(cest_result), ensure_ascii=False, sort_keys=True))
         return 0
     if args.command == "stage-ibs-cbs":
         with psycopg.connect(_database_url(), sslmode="require") as connection:
