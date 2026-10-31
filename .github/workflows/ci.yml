@@ -49,3 +49,6 @@ jobs:
 
       - name: Test PostgreSQL staging and publication flow
         run: npm run test:db-integration
+
+      - name: Validate GitHub Actions workflows
+        run: npm run test:workflows
