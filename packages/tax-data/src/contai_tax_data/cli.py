@@ -49,12 +49,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(result_as_dict(capture_result), ensure_ascii=False, sort_keys=True))
         return 0
     if args.command == "stage-ncm":
-        with psycopg.connect(_database_url()) as connection:
+        with psycopg.connect(_database_url(), sslmode="require") as connection:
             stage_result = stage_ncm_release(connection, args.output, args.release_id)
         print(json.dumps(database_result_as_dict(stage_result), ensure_ascii=False, sort_keys=True))
         return 0
     if args.command == "publish-ncm":
-        with psycopg.connect(_database_url()) as connection:
+        with psycopg.connect(_database_url(), sslmode="require") as connection:
             publication_result = publish_ncm_release(connection, args.release_id)
         print(json.dumps(database_result_as_dict(publication_result), ensure_ascii=False, sort_keys=True))
         return 0

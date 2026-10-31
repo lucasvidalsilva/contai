@@ -2,6 +2,9 @@
 .uv-python/
 .npm-cache/
 node_modules/
+.env
+.env.*
+!.env.example
 .venv/
 __pycache__/
 .pytest_cache/

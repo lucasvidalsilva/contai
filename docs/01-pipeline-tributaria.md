@@ -1,7 +1,7 @@
 # Etapa 01 — Pipeline tributária
 
 > **contAI · Especificação de execução v2.0 · 30/10/2026**  
-> **Status:** Marcos A e B concluídos para a NCM; Marco C implementado e testado em PostgreSQL 17 isolado, com validação no runtime Supabase e acesso remoto ainda não iniciados.
+> **Status:** Marcos A e B concluídos para a NCM; Marco C implantado e validado no projeto Supabase de desenvolvimento, ainda sem carga NCM remota.
 > **Escopo autorizado:** exclusivamente a plataforma de dados tributários. Motor fiscal, desktop, landing page, IA e MCP permanecem fora desta etapa.
 
 ## 1. Objetivo
@@ -355,7 +355,7 @@ Metadados da release: `contract_version`, `source_schema_version`, `source_act`,
 
 ### 12.5 Fluxo local implementado e plano curto
 
-Artefatos implementados em `packages/tax-data/`, sem banco remoto:
+Artefatos implementados em `packages/tax-data/`, com banco remoto somente no ambiente de desenvolvimento isolado:
 
 1. **Concluído — bootstrap:** Python 3.12.15 fixado, `uv.lock`, pacote mínimo e CLI `contai-tax-data capture-ncm`.
 2. **Concluído — captura:** URL fixa oficial, identificação do cliente, timeout, tentativas totais, backoff exponencial com jitter e respeito a `Retry-After`.
@@ -363,7 +363,7 @@ Artefatos implementados em `packages/tax-data/`, sem banco remoto:
 4. **Concluído — idempotência:** artefato idêntico não duplica; mudança apenas no “Vigente em” arquiva novo bruto sem release; mudança semântica cria release e diff.
 5. **Concluído — testes offline:** fixture pequena derivada da captura oficial e testes de parsing, schema, malformed, indisponibilidade/timeout, retry, vigência, duplicidade, regressão, quarentena, mudança e reexecução.
 6. **Concluído localmente — Marco C:** migração, staging privado, controles de qualidade, publicação transacional, consulta pública versionada, grants/RLS e testes de acesso e rollback.
-7. **Próximo passo seguro:** executar a mesma migração no runtime local completo do Supabase quando Docker estiver disponível; vincular ou alterar um projeto remoto continua sendo uma decisão separada.
+7. **Concluído — Supabase dev:** migrations e configuração da Data API aplicadas após `dry-run`; consultas SQL, RLS, grants, acesso HTTP e advisors verificados. Nenhuma carga NCM foi executada.
 
 Comandos locais padronizados:
 
@@ -379,32 +379,33 @@ npm run test:db-schema
 npm run test:db-integration
 ```
 
-O diretório `var/` é local e ignorado pelo Git. O armazenamento definitivo de originais grandes continua pendente; esta implementação não escolhe provedor, não cria custos e não altera Supabase, secrets, permissões ou produção.
+O diretório `var/` é local e ignorado pelo Git. O armazenamento definitivo de originais grandes continua pendente; esta implementação não escolhe provedor, não cria custos, não altera produção e não versiona secrets.
 
-### 12.6 Implementação local do Marco C
+### 12.6 Implementação do Marco C
 
 A migração em `infra/supabase/migrations/` cria duas fronteiras:
 
 - `tax_ingest`: catálogo da fonte, artefatos, execuções, candidatos, resultados de qualidade e registros NCM. O schema não integra a lista da Data API e só concede escrita à role `tax_ingest_writer`, criada sem login, senha ou herança automática.
 - `tax_public`: histórico aprovado, ponteiro da release corrente, registros publicados e a view `ncm_current`. As tabelas têm RLS; `anon` e `authenticated` recebem somente `SELECT`; a view usa `security_invoker=true`.
 
-A configuração local expõe explicitamente `tax_public`, mantém `auto_expose_new_tables = false` e não abre `tax_ingest`. A aplicação remota dessa configuração, a associação de uma role de login a `tax_ingest_writer` e qualquer mudança de grants/RLS em projeto compartilhado não foram executadas.
+A configuração expõe explicitamente `tax_public`, mantém `auto_expose_new_tables = false` e não abre `tax_ingest`. As migrations `20261031015129` e `20261031040249` foram aplicadas somente no projeto `contai-dev`: a segunda permite que `postgres` execute `SET ROLE tax_ingest_writer`, com `INHERIT FALSE` e `ADMIN FALSE`. Esse uso da credencial administrativa é restrito ao desenvolvimento; CI e produção deverão receber login dedicado antes de qualquer ativação.
 
 O módulo `contai_tax_data.postgres` reprocessa o JSON bruto, confere hashes, snapshot, identidade semântica e contagens antes do staging. A promoção adquire advisory lock transacional, exige todos os checks aprovados, copia a release para `tax_public`, confere a contagem e troca `dataset_current` na mesma transação. Repetições são idempotentes; uma falha antes da troca do ponteiro preserva integralmente a release anterior.
 
-Os testes de banco usam PostgreSQL 17 compilado para WebAssembly por PGlite e o protocolo PostgreSQL real para o `psycopg`. Eles aplicam a migração, exercitam duas cargas iguais, duas publicações iguais, leitura como `anon`, negação do schema privado e uma falha injetada após a cópia pública para comprovar rollback. Isso valida o núcleo PostgreSQL, mas não substitui um `supabase db reset`: PostgREST, Auth, Storage e o empacotamento completo da plataforma ainda não foram executados neste Windows sem Docker.
+Os testes offline usam PostgreSQL 17 compilado para WebAssembly por PGlite e o protocolo PostgreSQL real para o `psycopg`. Eles aplicam todas as migrations, exercitam duas cargas iguais, duas publicações iguais, leitura como `anon`, negação do schema privado e uma falha injetada após a cópia pública para comprovar rollback. No Supabase dev, foram verificados PostgreSQL 17.11, TLS, `SET ROLE`, RLS, `security_invoker`, grants, histórico de migrations, ausência de drift, advisors, leitura HTTP 200 de `tax_public` e rejeição HTTP 406 de `tax_ingest`. Auth e Storage não foram exercitados porque não participam deste fluxo.
 
 A prova adicional com a captura oficial arquivada em 30/10/2026 persistiu e publicou 15.157 registros e 10.516 subitens, mantendo as mesmas contagens na view corrente. O teste reduzido permanece no repositório para CI; o corpus oficial continua em `var/`, fora do Git.
 
 Uso manual, somente depois de migrar um banco de desenvolvimento e configurar a associação da credencial de ingestão à role sem login:
 
 ```powershell
-$env:CONTAI_DATABASE_URL = '<conexao-do-banco-de-desenvolvimento>'
-uv --cache-dir .uv-cache run --project packages/tax-data contai-tax-data stage-ncm --output var/tax-data
-uv --cache-dir .uv-cache run --project packages/tax-data contai-tax-data publish-ncm <release_id>
+Copy-Item .env.example .env
+# Preencher SUPABASE_PROJECT_REF e CONTAI_DATABASE_URL no .env.
+uv --cache-dir .uv-cache run --env-file .env --project packages/tax-data contai-tax-data stage-ncm --output var/tax-data
+uv --cache-dir .uv-cache run --env-file .env --project packages/tax-data contai-tax-data publish-ncm <release_id>
 ```
 
-Não registrar a URL de conexão em Git, argumentos de linha de comando ou logs. A captura e o staging não publicam automaticamente; `publish-ncm` é uma ação explícita e separada.
+Usar a conexão `Session pooler` para a pipeline em redes IPv4; a CLI força `sslmode=require`. Migrações continuam sob a Supabase CLI vinculada ao projeto e passam primeiro por `db push --dry-run`; a aplicação efetiva exige autorização. Não registrar a URL de conexão em Git, argumentos de linha de comando ou logs. A captura e o staging não publicam automaticamente; `publish-ncm` é uma ação explícita e separada.
 
 ---
 
