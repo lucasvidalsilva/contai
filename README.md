@@ -114,7 +114,7 @@ A execução será incremental. **Cada etapa precisa de critérios de aceite e t
 
 | Etapa | Objetivo | Situação |
 | --- | --- | --- |
-| **01 · Pipeline tributária** | Extrair e versionar dados oficiais com Python, GitHub Actions e Supabase PostgreSQL. | **NCM publicada no Supabase dev; TIPI e IBS/CBS com captura, staging e publicação implementados localmente; IBS/CBS capturada manualmente. CEST tem captura bruta local, sem normalização jurídica. Migrations TIPI/IBS-CBS e publicação dessas fontes no Supabase ainda pendentes; normas em investigação** |
+| **01 · Pipeline tributária** | Extrair e versionar dados oficiais com Python, GitHub Actions e Supabase PostgreSQL. | **NCM publicada no Supabase dev; TIPI e IBS/CBS com captura, staging e publicação implementados localmente; IBS/CBS capturada manualmente. CEST tem captura bruta, sem normalização jurídica. LC 214 tem captura bruta implementada, mas o acesso HTTP local ao Planalto foi encerrado pelo servidor. Migrations TIPI/IBS-CBS e publicação dessas fontes no Supabase ainda pendentes; demais normas em investigação** |
 | **02 · Motor fiscal** | Validar documentos sintéticos de NF-e e produzir alertas fundamentados. | Planejada |
 | **03 · Aplicativo** | Criar a experiência de conferência local com Tauri. | Planejada |
 | **04 · Landing page** | Apresentar o produto e disponibilizar a distribuição. | Planejada |

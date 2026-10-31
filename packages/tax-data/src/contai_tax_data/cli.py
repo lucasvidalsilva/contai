@@ -14,6 +14,7 @@ import psycopg
 from contai_tax_data.cest_capture import capture_cest
 from contai_tax_data.ibs_cbs import IBS_CBS_ACCEPT
 from contai_tax_data.ibs_cbs_storage import capture_ibs_cbs
+from contai_tax_data.normative_capture import capture_lc214
 from contai_tax_data.pipeline import capture_ncm
 from contai_tax_data.postgres import (
     publish_ibs_cbs_release,
@@ -52,6 +53,10 @@ def build_parser() -> argparse.ArgumentParser:
     cest = commands.add_parser("capture-cest", help="captura e arquiva o Convênio ICMS 142/18 sem inferir vigência")
     cest.add_argument("--output", type=Path, default=Path("var/tax-data"))
     cest.add_argument("--timeout", type=float, default=45.0, dest="timeout_seconds")
+
+    lc214 = commands.add_parser("capture-lc214", help="captura e arquiva o texto oficial compilado da LC 214/2025")
+    lc214.add_argument("--output", type=Path, default=Path("var/tax-data"))
+    lc214.add_argument("--timeout", type=float, default=45.0, dest="timeout_seconds")
 
     stage_ibs_cbs = commands.add_parser(
         "stage-ibs-cbs", help="revalida e persiste uma release IBS/CBS no schema privado"
@@ -106,6 +111,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         client = SourceClient(accept="text/html", attempts=1, timeout_seconds=args.timeout_seconds)
         cest_result = capture_cest(args.output / "cest", client=client)
         print(json.dumps(asdict(cest_result), ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "capture-lc214":
+        client = SourceClient(accept="text/html", attempts=1, timeout_seconds=args.timeout_seconds)
+        law_result = capture_lc214(args.output / "laws" / "lc214", client=client)
+        print(json.dumps(asdict(law_result), ensure_ascii=False, sort_keys=True))
         return 0
     if args.command == "stage-ibs-cbs":
         with psycopg.connect(_database_url(), sslmode="require") as connection:
