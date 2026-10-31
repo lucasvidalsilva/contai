@@ -399,12 +399,13 @@ A prova adicional com a captura oficial arquivada em 30/10/2026 persistiu e publ
 Uso manual, somente depois de migrar um banco de desenvolvimento e configurar a associação da credencial de ingestão à role sem login:
 
 ```powershell
-$env:CONTAI_DATABASE_URL = '<conexao-do-banco-de-desenvolvimento>'
-uv --cache-dir .uv-cache run --project packages/tax-data contai-tax-data stage-ncm --output var/tax-data
-uv --cache-dir .uv-cache run --project packages/tax-data contai-tax-data publish-ncm <release_id>
+Copy-Item .env.example .env
+# Preencher SUPABASE_PROJECT_REF e CONTAI_DATABASE_URL no .env.
+uv --cache-dir .uv-cache run --env-file .env --project packages/tax-data contai-tax-data stage-ncm --output var/tax-data
+uv --cache-dir .uv-cache run --env-file .env --project packages/tax-data contai-tax-data publish-ncm <release_id>
 ```
 
-Não registrar a URL de conexão em Git, argumentos de linha de comando ou logs. A captura e o staging não publicam automaticamente; `publish-ncm` é uma ação explícita e separada.
+Usar a conexão `Session pooler` para a pipeline em redes IPv4. Migrações continuam sob a Supabase CLI vinculada ao projeto e passam primeiro por `db push --dry-run`; a aplicação efetiva exige autorização. Não registrar a URL de conexão em Git, argumentos de linha de comando ou logs. A captura e o staging não publicam automaticamente; `publish-ncm` é uma ação explícita e separada.
 
 ---
 
