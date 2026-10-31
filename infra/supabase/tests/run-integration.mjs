@@ -6,8 +6,8 @@ import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
 
 const migrationsDirectory = new URL("../migrations/", import.meta.url);
 const migrations = (await readdir(migrationsDirectory)).filter((name) => name.endsWith(".sql")).sort();
-if (migrations.length !== 1) {
-  throw new Error("o runner deve acompanhar explicitamente a primeira migracao");
+if (migrations.length === 0) {
+  throw new Error("ao menos uma migracao deve existir");
 }
 
 const db = await PGlite.create();
@@ -15,7 +15,9 @@ const server = new PGLiteSocketServer({ db, host: "127.0.0.1", port: 0, maxConne
 
 try {
   await db.exec("create role anon nologin; create role authenticated nologin; create role service_role nologin;");
-  await db.exec(await readFile(new URL(migrations[0], migrationsDirectory), "utf8"));
+  for (const migration of migrations) {
+    await db.exec(await readFile(new URL(migration, migrationsDirectory), "utf8"));
+  }
   await server.start();
   const databaseUrl = `postgresql://postgres@${server.getServerConn()}/postgres?sslmode=disable`;
 

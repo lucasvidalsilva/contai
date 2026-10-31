@@ -9,8 +9,9 @@ const configUrl = new URL("../config.toml", import.meta.url);
 
 async function migrationSql() {
   const migrations = (await readdir(migrationsDirectory)).filter((name) => name.endsWith(".sql")).sort();
-  assert.equal(migrations.length, 1, "o teste deve acompanhar explicitamente a primeira migracao");
-  return readFile(new URL(migrations[0], migrationsDirectory), "utf8");
+  assert.ok(migrations.length > 0, "ao menos uma migracao deve existir");
+  const contents = await Promise.all(migrations.map((name) => readFile(new URL(name, migrationsDirectory), "utf8")));
+  return contents.join("\n");
 }
 
 async function expectDenied(action) {
@@ -25,6 +26,8 @@ test("migração cria fronteira privada e leitura pública governada", async () 
   const db = new PGlite();
   await db.exec("create role anon nologin; create role authenticated nologin; create role service_role nologin;");
   await db.exec(await migrationSql());
+
+  await db.exec("set role tax_ingest_writer; reset role");
 
   const schemas = await db.query(
     "select schema_name from information_schema.schemata where schema_name in ('tax_ingest', 'tax_public') order by 1",
