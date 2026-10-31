@@ -114,7 +114,7 @@ A execução será incremental. **Cada etapa precisa de critérios de aceite e t
 
 | Etapa | Objetivo | Situação |
 | --- | --- | --- |
-| **01 · Pipeline tributária** | Extrair e versionar dados oficiais com Python, GitHub Actions e Supabase PostgreSQL. | **NCM dos Marcos A/B concluída; Marco C implantado e validado no Supabase dev, ainda sem carga remota** |
+| **01 · Pipeline tributária** | Extrair e versionar dados oficiais com Python, GitHub Actions e Supabase PostgreSQL. | **NCM dos Marcos A–C concluídos, com release publicada no Supabase dev; Marco D parcialmente concluído (CI offline e captura manual, sem publicação automática)** |
 | **02 · Motor fiscal** | Validar documentos sintéticos de NF-e e produzir alertas fundamentados. | Planejada |
 | **03 · Aplicativo** | Criar a experiência de conferência local com Tauri. | Planejada |
 | **04 · Landing page** | Apresentar o produto e disponibilizar a distribuição. | Planejada |
