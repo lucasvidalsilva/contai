@@ -24,10 +24,11 @@ test("CI executa em pull requests e push para main sem secrets", async () => {
   assert.ok(workflow.jobs["tax-data"].steps.some((step) => step.run?.includes("test:workflows")));
 });
 
-test("captura NCM é manual, sem agenda ou acesso de publicação", async () => {
+test("captura NCM é agendada e manual, sem acesso de publicação", async () => {
   const workflow = await readWorkflow("capture.yml");
 
-  assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
+  assert.deepEqual(Object.keys(workflow.on).sort(), ["schedule", "workflow_dispatch"].sort());
+  assert.deepEqual(workflow.on.schedule, [{ cron: "30 8 * * *" }]);
   assert.ok(workflow.jobs["capture-ncm"].steps.some((step) => step.run?.includes("capture-ncm")));
   assert.ok(workflow.jobs["capture-ncm"].steps.some((step) => step.uses?.startsWith("actions/upload-artifact@")));
   assert.ok(!workflow.jobs["capture-ncm"].steps.some((step) => step.run?.includes("publish-ncm")));
