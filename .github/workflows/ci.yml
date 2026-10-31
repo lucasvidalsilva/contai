@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tax-data:
+    name: Python tax-data and database migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: packages/tax-data/uv.lock
+
+      - name: Install locked Python environment
+        run: uv sync --locked --project packages/tax-data
+
+      - name: Lint
+        run: uv run --project packages/tax-data ruff check packages/tax-data
+
+      - name: Check formatting
+        run: uv run --project packages/tax-data ruff format --check packages/tax-data
+
+      - name: Type check
+        run: uv run --project packages/tax-data mypy packages/tax-data/src
+
+      - name: Unit and offline integration tests
+        run: uv run --project packages/tax-data pytest
+
+      - name: Install locked Node development tools
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Test PostgreSQL migration and role boundaries
+        run: npm run test:db-schema
+
+      - name: Test PostgreSQL staging and publication flow
+        run: npm run test:db-integration
+
+      - name: Validate GitHub Actions workflows
+        run: npm run test:workflows

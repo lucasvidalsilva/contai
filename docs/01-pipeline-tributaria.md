@@ -1,7 +1,7 @@
 # Etapa 01 — Pipeline tributária
 
 > **contAI · Especificação de execução v2.0 · 30/10/2026**  
-> **Status:** Marcos A e B concluídos para a NCM; Marco C implantado e validado no projeto Supabase de desenvolvimento, ainda sem carga NCM remota.
+> **Status:** Marcos A e B concluídos para a NCM; Marco C implantado e validado no Supabase dev, incluindo publicação NCM; CI offline e captura manual do Marco D configurados.
 > **Escopo autorizado:** exclusivamente a plataforma de dados tributários. Motor fiscal, desktop, landing page, IA e MCP permanecem fora desta etapa.
 
 ## 1. Objetivo
@@ -363,7 +363,8 @@ Artefatos implementados em `packages/tax-data/`, com banco remoto somente no amb
 4. **Concluído — idempotência:** artefato idêntico não duplica; mudança apenas no “Vigente em” arquiva novo bruto sem release; mudança semântica cria release e diff.
 5. **Concluído — testes offline:** fixture pequena derivada da captura oficial e testes de parsing, schema, malformed, indisponibilidade/timeout, retry, vigência, duplicidade, regressão, quarentena, mudança e reexecução.
 6. **Concluído localmente — Marco C:** migração, staging privado, controles de qualidade, publicação transacional, consulta pública versionada, grants/RLS e testes de acesso e rollback.
-7. **Concluído — Supabase dev:** migrations e configuração da Data API aplicadas após `dry-run`; consultas SQL, RLS, grants, acesso HTTP e advisors verificados. Nenhuma carga NCM foi executada.
+7. **Concluído — Supabase dev:** migrations e configuração da Data API aplicadas após `dry-run`; NCM validada, staged e publicada; consultas SQL, RLS, grants, acesso HTTP, idempotência e advisors verificados.
+8. **Concluído parcialmente — Marco D:** CI offline em pull requests e pushes para `main`; captura NCM somente por `workflow_dispatch`, com resumo e artefatos retidos por 14 dias. Não conecta ao banco e não publica.
 
 Comandos locais padronizados:
 
@@ -379,7 +380,7 @@ npm run test:db-schema
 npm run test:db-integration
 ```
 
-O diretório `var/` é local e ignorado pelo Git. O armazenamento definitivo de originais grandes continua pendente; esta implementação não escolhe provedor, não cria custos, não altera produção e não versiona secrets.
+O diretório `var/` é local e ignorado pelo Git. O armazenamento definitivo de originais grandes continua pendente; o workflow de captura guarda artefatos de execução por 14 dias no GitHub Actions, sem ativar agenda, não altera produção e não versiona secrets.
 
 ### 12.6 Implementação do Marco C
 
@@ -394,7 +395,7 @@ O módulo `contai_tax_data.postgres` reprocessa o JSON bruto, confere hashes, sn
 
 Os testes offline usam PostgreSQL 17 compilado para WebAssembly por PGlite e o protocolo PostgreSQL real para o `psycopg`. Eles aplicam todas as migrations, exercitam duas cargas iguais, duas publicações iguais, leitura como `anon`, negação do schema privado e uma falha injetada após a cópia pública para comprovar rollback. No Supabase dev, foram verificados PostgreSQL 17.11, TLS, `SET ROLE`, RLS, `security_invoker`, grants, histórico de migrations, ausência de drift, advisors, leitura HTTP 200 de `tax_public` e rejeição HTTP 406 de `tax_ingest`. Auth e Storage não foram exercitados porque não participam deste fluxo.
 
-A prova adicional com a captura oficial arquivada em 30/10/2026 persistiu e publicou 15.157 registros e 10.516 subitens, mantendo as mesmas contagens na view corrente. O teste reduzido permanece no repositório para CI; o corpus oficial continua em `var/`, fora do Git.
+A captura oficial arquivada em 30/10/2026 foi staged e publicada no Supabase dev: 15.157 registros e 10.516 subitens. Reexecução de staging e publicação são idempotentes; o corpus oficial continua em `var/`, fora do Git.
 
 Uso manual, somente depois de migrar um banco de desenvolvimento e configurar a associação da credencial de ingestão à role sem login:
 

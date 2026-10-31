@@ -1,0 +1,34 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+import { parseDocument } from "yaml";
+
+async function readWorkflow(name) {
+  const source = await readFile(new URL(`../workflows/${name}`, import.meta.url), "utf8");
+  const document = parseDocument(source, { uniqueKeys: true });
+  assert.deepEqual(document.errors, [], `${name} deve ser YAML válido`);
+  const value = document.toJS();
+  assert.equal(typeof value.on, "object", `${name} deve declarar gatilhos`);
+  assert.deepEqual(value.permissions, { contents: "read" }, `${name} deve usar permissões mínimas`);
+  return value;
+}
+
+test("CI executa em pull requests e push para main sem secrets", async () => {
+  const workflow = await readWorkflow("ci.yml");
+
+  assert.ok(Object.hasOwn(workflow.on, "pull_request"));
+  assert.deepEqual(workflow.on.push.branches, ["main"]);
+  assert.ok(workflow.jobs["tax-data"].steps.some((step) => step.run?.includes("pytest")));
+  assert.ok(workflow.jobs["tax-data"].steps.some((step) => step.run?.includes("test:db-integration")));
+  assert.ok(workflow.jobs["tax-data"].steps.some((step) => step.run?.includes("test:workflows")));
+});
+
+test("captura NCM é manual, sem agenda ou acesso de publicação", async () => {
+  const workflow = await readWorkflow("capture.yml");
+
+  assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
+  assert.ok(workflow.jobs["capture-ncm"].steps.some((step) => step.run?.includes("capture-ncm")));
+  assert.ok(workflow.jobs["capture-ncm"].steps.some((step) => step.uses?.startsWith("actions/upload-artifact@")));
+  assert.ok(!workflow.jobs["capture-ncm"].steps.some((step) => step.run?.includes("publish-ncm")));
+});
