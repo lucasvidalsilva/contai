@@ -13,6 +13,15 @@ from typing import Any
 from psycopg import Connection
 from psycopg.types.json import Jsonb
 
+from contai_tax_data.ibs_cbs import (
+    IBS_CBS_CONTRACT_VERSION,
+    IBS_CBS_SOURCE_URL,
+    IbsCbsDataset,
+    ibs_cbs_release_id,
+    ibs_cbs_snapshot,
+    parse_ibs_cbs_html,
+    validate_ibs_cbs,
+)
 from contai_tax_data.ncm import DEFAULT_QUALITY_POLICY, NcmDataset, QualityPolicy, parse_ncm_json, validate_ncm
 from contai_tax_data.source import NCM_SOURCE_URL
 from contai_tax_data.tipi import (
@@ -29,6 +38,10 @@ _SOURCE_KEY = "siscomex-ncm"
 _QUALITY_CHECKS = frozenset({"entry_count", "leaf_count", "quality_policy", "release_identity", "snapshot_sha256"})
 _TIPI_SOURCE_KEY = "rfb-tipi"
 _TIPI_QUALITY_CHECKS = frozenset({"entry_count", "ex_count", "quality_policy", "release_identity", "snapshot_sha256"})
+_IBS_CBS_SOURCE_KEY = "svrs-cff-classificacao-tributaria"
+_IBS_CBS_QUALITY_CHECKS = frozenset(
+    {"entry_count", "cst_count", "annex_link_count", "quality_policy", "release_identity", "snapshot_sha256"}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +82,24 @@ class LocalTipiRelease:
     raw_path: str
     response_headers: dict[str, str]
     dataset: TipiDataset
+
+
+@dataclass(frozen=True, slots=True)
+class LocalIbsCbsRelease:
+    release_id: str
+    artifact_sha256: str
+    snapshot_sha256: str
+    contract_version: str
+    created_at: datetime
+    captured_at: datetime
+    requested_url: str
+    final_url: str
+    http_status: int
+    content_type: str
+    byte_size: int
+    raw_path: str
+    response_headers: dict[str, str]
+    dataset: IbsCbsDataset
 
 
 @dataclass(frozen=True, slots=True)
@@ -317,6 +348,126 @@ def load_local_tipi_release(
         requested_url=_text(artifact_manifest, "requested_url", "manifesto do artefato TIPI"),
         final_url=_text(artifact_manifest, "final_url", "manifesto do artefato TIPI"),
         http_status=_integer(artifact_manifest, "http_status", "manifesto do artefato TIPI"),
+        content_type=content_type,
+        byte_size=byte_size,
+        raw_path=raw_path,
+        response_headers={key: str(value) for key, value in headers.items()},
+        dataset=dataset,
+    )
+
+
+def load_local_ibs_cbs_release(
+    output_dir: Path,
+    release_id: str | None = None,
+    *,
+    minimum_csts: int = 1,
+    maximum_csts: int = 40,
+    minimum_classifications: int = 100,
+    maximum_classifications: int = 500,
+    maximum_annex_links: int = 50_000,
+) -> LocalIbsCbsRelease:
+    """Revalida o HTML bruto e o snapshot local antes do staging PostgreSQL."""
+    root = output_dir.resolve()
+    if release_id is None:
+        pointer = _read_json(root / "state" / "ibs-cbs-current.json", "ponteiro IBS/CBS")
+        release_id = _text(pointer, "release_id", "ponteiro IBS/CBS")
+    if not _SHA256.fullmatch(release_id):
+        raise ValueError("release_id IBS/CBS deve ser SHA-256 hexadecimal")
+
+    release_manifest = _read_json(root / "releases" / f"{release_id}.json", "manifesto da release IBS/CBS")
+    if _text(release_manifest, "release_id", "manifesto da release IBS/CBS") != release_id:
+        raise ValueError("release_id diverge do manifesto IBS/CBS")
+    snapshot_sha256 = _text(release_manifest, "snapshot_sha256", "manifesto da release IBS/CBS")
+    artifact_sha256_value = release_manifest.get("artifact_sha256")
+    if isinstance(artifact_sha256_value, str):
+        artifact_sha256 = artifact_sha256_value
+    else:
+        legacy_matches: list[str] = []
+        for manifest_path in (root / "artifacts" / "manifests").glob("*.json"):
+            try:
+                manifest_candidate = _read_json(manifest_path, "manifesto local IBS/CBS")
+            except ValueError:
+                continue
+            candidate_hash = manifest_candidate.get("artifact_sha256")
+            if manifest_candidate.get("release_id") == release_id and isinstance(candidate_hash, str):
+                legacy_matches.append(candidate_hash)
+        if len(set(legacy_matches)) != 1:
+            raise ValueError("manifesto IBS/CBS nao identifica univocamente o artefato bruto")
+        artifact_sha256 = legacy_matches[0]
+    if not _SHA256.fullmatch(artifact_sha256) or not _SHA256.fullmatch(snapshot_sha256):
+        raise ValueError("manifesto IBS/CBS contem hash SHA-256 invalido")
+
+    snapshot = _safe_local_path(root, f"releases/{release_id}.jsonl", "snapshot IBS/CBS").read_bytes()
+    if hashlib.sha256(snapshot).hexdigest() != snapshot_sha256:
+        raise ValueError("hash do snapshot IBS/CBS diverge do manifesto")
+    artifact_manifest = _read_json(
+        root / "artifacts" / "manifests" / f"{artifact_sha256}.json", "manifesto do artefato IBS/CBS"
+    )
+    if _text(artifact_manifest, "artifact_sha256", "manifesto do artefato IBS/CBS") != artifact_sha256:
+        raise ValueError("hash do artefato IBS/CBS diverge do manifesto")
+    if _text(artifact_manifest, "status", "manifesto do artefato IBS/CBS") != "accepted":
+        raise ValueError("somente artefatos IBS/CBS aceitos podem ser persistidos")
+    parser_version = artifact_manifest.get("parser_version")
+    if parser_version is not None and parser_version != IBS_CBS_CONTRACT_VERSION:
+        raise ValueError("parser IBS/CBS diverge do manifesto do artefato")
+    raw_path = _text(artifact_manifest, "raw_path", "manifesto do artefato IBS/CBS")
+    raw = _safe_local_path(root, raw_path, "raw_path IBS/CBS").read_bytes()
+    if hashlib.sha256(raw).hexdigest() != artifact_sha256:
+        raise ValueError("hash do HTML bruto IBS/CBS diverge do manifesto")
+    headers = _object(artifact_manifest.get("headers"), "response_headers IBS/CBS")
+    if not all(isinstance(value, str) for value in headers.values()):
+        raise ValueError("response_headers IBS/CBS deve conter somente textos")
+    content_type = str(headers.get("content-type", "")).split(";", maxsplit=1)[0].strip().lower()
+    if content_type != "text/html":
+        raise ValueError("manifesto nao confirma Content-Type HTML IBS/CBS")
+    byte_size_value = artifact_manifest.get("byte_size", headers.get("content-length", len(raw)))
+    if not isinstance(byte_size_value, int | str) or isinstance(byte_size_value, bool):
+        raise ValueError("byte_size IBS/CBS deve ser inteiro")
+    try:
+        byte_size = int(byte_size_value)
+    except ValueError:
+        raise ValueError("byte_size IBS/CBS deve ser inteiro") from None
+    if len(raw) != byte_size:
+        raise ValueError("tamanho do HTML bruto IBS/CBS diverge do manifesto")
+    dataset = parse_ibs_cbs_html(raw)
+    validate_ibs_cbs(
+        dataset,
+        minimum_csts=minimum_csts,
+        maximum_csts=maximum_csts,
+        minimum_classifications=minimum_classifications,
+        maximum_classifications=maximum_classifications,
+        maximum_annex_links=maximum_annex_links,
+    )
+    if ibs_cbs_release_id(ibs_cbs_snapshot(dataset)) != release_id:
+        raise ValueError("release IBS/CBS nao e reproduzivel a partir do HTML bruto")
+    if ibs_cbs_snapshot(dataset) != snapshot:
+        raise ValueError("snapshot IBS/CBS diverge do HTML bruto")
+    counts = {
+        "cst_count": len(dataset.csts),
+        "classification_count": len(dataset.classifications),
+        "annex_link_count": len(dataset.annex_links),
+    }
+    for key, observed in counts.items():
+        if _integer(release_manifest, key, "manifesto da release IBS/CBS") != observed:
+            raise ValueError(f"{key} da release IBS/CBS diverge do manifesto")
+    captured_at = _timestamp(_text(artifact_manifest, "captured_at", "manifesto do artefato IBS/CBS"), "captured_at")
+    created_at_value = release_manifest.get("created_at")
+    created_at = _timestamp(created_at_value, "created_at") if isinstance(created_at_value, str) else captured_at
+    source_id = artifact_manifest.get("source_id", _IBS_CBS_SOURCE_KEY)
+    if source_id != _IBS_CBS_SOURCE_KEY:
+        raise ValueError("source_id do artefato IBS/CBS diverge do contrato")
+    if _text(artifact_manifest, "requested_url", "manifesto do artefato IBS/CBS") != IBS_CBS_SOURCE_URL:
+        raise ValueError("requested_url do artefato IBS/CBS diverge da fonte oficial")
+    return LocalIbsCbsRelease(
+        release_id=release_id,
+        artifact_sha256=artifact_sha256,
+        snapshot_sha256=snapshot_sha256,
+        contract_version=_text(release_manifest, "contract_version", "manifesto da release IBS/CBS"),
+        created_at=created_at,
+        captured_at=captured_at,
+        requested_url=_text(artifact_manifest, "requested_url", "manifesto do artefato IBS/CBS"),
+        final_url=_text(artifact_manifest, "final_url", "manifesto do artefato IBS/CBS"),
+        http_status=_integer(artifact_manifest, "http_status", "manifesto do artefato IBS/CBS"),
         content_type=content_type,
         byte_size=byte_size,
         raw_path=raw_path,
@@ -854,6 +1005,321 @@ def stage_tipi_release(
     )
 
 
+def _source_timestamp(value: object, context: str, *, nullable: bool = False) -> datetime | None:
+    if value is None and nullable:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"{context} deve ser timestamp ISO")
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        raise ValueError(f"{context} deve ser timestamp ISO") from None
+
+
+def _ibs_attributes(record: dict[str, Any], excluded: frozenset[str]) -> Jsonb:
+    return Jsonb({key: value for key, value in record.items() if key not in excluded})
+
+
+def _upsert_ibs_cbs_source(connection: Connection[Any], local: LocalIbsCbsRelease) -> None:
+    connection.execute(
+        """
+        insert into tax_ingest.source_registry (
+          source_key, agency, dataset_name, canonical_url, source_format,
+          contract_version, parser_version, updated_at
+        ) values (%s, %s, %s, %s, 'text/html', %s, %s, %s)
+        on conflict (source_key) do update set
+          agency = excluded.agency,
+          dataset_name = excluded.dataset_name,
+          canonical_url = excluded.canonical_url,
+          source_format = excluded.source_format,
+          contract_version = excluded.contract_version,
+          parser_version = excluded.parser_version,
+          updated_at = excluded.updated_at
+        """,
+        (
+            _IBS_CBS_SOURCE_KEY,
+            "SVRS / ENCAT",
+            "Classificacao Tributaria IBS e CBS",
+            IBS_CBS_SOURCE_URL,
+            local.contract_version,
+            "contai_tax_data.ibs_cbs:ibs-cbs-v1",
+            datetime.now(UTC),
+        ),
+    )
+    connection.execute(
+        """
+        insert into tax_ingest.source_artifact (
+          source_key, artifact_sha256, requested_url, final_url, captured_at,
+          http_status, content_type, byte_size, raw_path, response_headers, status
+        ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'accepted')
+        on conflict (source_key, artifact_sha256) do nothing
+        """,
+        (
+            _IBS_CBS_SOURCE_KEY,
+            local.artifact_sha256,
+            local.requested_url,
+            local.final_url,
+            local.captured_at,
+            local.http_status,
+            local.content_type,
+            local.byte_size,
+            local.raw_path,
+            Jsonb(local.response_headers),
+        ),
+    )
+
+
+def _record_failed_ibs_cbs_run(
+    connection: Connection[Any], local: LocalIbsCbsRelease, started_at: datetime, error: Exception
+) -> None:
+    try:
+        with connection.transaction():
+            _configure_transaction(connection, "contai:ibs-cbs:failure-log")
+            _upsert_ibs_cbs_source(connection, local)
+            connection.execute(
+                """
+                insert into tax_ingest.ingestion_run (
+                  source_key, artifact_sha256, release_id, started_at, completed_at, status, error_message
+                ) values (%s, %s, %s, %s, %s, 'failed', %s)
+                """,
+                (
+                    _IBS_CBS_SOURCE_KEY,
+                    local.artifact_sha256,
+                    local.release_id,
+                    started_at,
+                    datetime.now(UTC),
+                    f"{type(error).__name__}: {error}"[:4000],
+                ),
+            )
+    except Exception as log_error:  # pragma: no cover - depende de falha dupla no banco
+        error.add_note(f"nao foi possivel registrar a falha IBS/CBS: {log_error}")
+
+
+def stage_ibs_cbs_release(
+    connection: Connection[Any],
+    output_dir: Path,
+    release_id: str | None = None,
+    *,
+    minimum_csts: int = 1,
+    maximum_csts: int = 40,
+    minimum_classifications: int = 100,
+    maximum_classifications: int = 500,
+    maximum_annex_links: int = 50_000,
+) -> StageResult:
+    """Carrega CST, cClassTrib e anexos no schema privado apos revalidar o bruto."""
+    local = load_local_ibs_cbs_release(
+        output_dir,
+        release_id,
+        minimum_csts=minimum_csts,
+        maximum_csts=maximum_csts,
+        minimum_classifications=minimum_classifications,
+        maximum_classifications=maximum_classifications,
+        maximum_annex_links=maximum_annex_links,
+    )
+    dataset = local.dataset
+    started_at = datetime.now(UTC)
+    cst_count = len(dataset.csts)
+    entry_count = len(dataset.classifications)
+    annex_count = len(dataset.annex_links)
+    quality_policy = {
+        "minimum_csts": minimum_csts,
+        "maximum_csts": maximum_csts,
+        "minimum_classifications": minimum_classifications,
+        "maximum_classifications": maximum_classifications,
+        "maximum_annex_links": maximum_annex_links,
+    }
+    try:
+        with connection.transaction():
+            _configure_transaction(connection, "contai:ibs-cbs:stage")
+            _upsert_ibs_cbs_source(connection, local)
+            inserted = connection.execute(
+                """
+                insert into tax_ingest.dataset_release (
+                  release_id, source_key, artifact_sha256, domain, contract_version,
+                  source_schema_version, source_act, source_as_of, snapshot_sha256,
+                  entry_count, leaf_count, metadata, created_at
+                ) values (%s, %s, %s, 'ibs_cbs', %s, %s, 'Tabela pública SVRS/Conformidade Fácil',
+                          null, %s, %s, 0, %s, %s)
+                on conflict (release_id) do nothing
+                returning release_id
+                """,
+                (
+                    local.release_id,
+                    _IBS_CBS_SOURCE_KEY,
+                    local.artifact_sha256,
+                    local.contract_version,
+                    local.contract_version,
+                    local.snapshot_sha256,
+                    entry_count,
+                    Jsonb(
+                        {
+                            "raw_path": local.raw_path,
+                            "cst_count": cst_count,
+                            "classification_count": entry_count,
+                            "annex_link_count": annex_count,
+                        }
+                    ),
+                    local.created_at,
+                ),
+            ).fetchone()
+            release_created = inserted is not None
+
+            with connection.cursor() as cursor:
+                cursor.executemany(
+                    """
+                    insert into tax_ingest.ibs_cbs_cst (
+                      release_id, cst_code, description, valid_from, valid_to, attributes
+                    ) values (%s, %s, %s, %s, %s, %s)
+                    on conflict (release_id, cst_code) do nothing
+                    """,
+                    (
+                        (
+                            local.release_id,
+                            row["Cst"],
+                            row["NomeCst"],
+                            _source_timestamp(row["DthIniVig"], "CST.DthIniVig"),
+                            _source_timestamp(row["DthFimVig"], "CST.DthFimVig", nullable=True),
+                            _ibs_attributes(row, frozenset({"Cst", "NomeCst", "DthIniVig", "DthFimVig"})),
+                        )
+                        for row in dataset.csts
+                    ),
+                )
+                cursor.executemany(
+                    """
+                    insert into tax_ingest.ibs_cbs_classification (
+                      release_id, cclasstrib_code, cst_code, description, short_description,
+                      valid_from, valid_to, legislation_url, attributes
+                    ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    on conflict (release_id, cclasstrib_code) do nothing
+                    """,
+                    (
+                        (
+                            local.release_id,
+                            row["CodClassTrib"],
+                            row["Cst"],
+                            row["NomeClassTrib"],
+                            row["NomeReduzido"],
+                            _source_timestamp(row["DthIniVig"], "cClassTrib.DthIniVig"),
+                            _source_timestamp(row["DthFimVig"], "cClassTrib.DthFimVig", nullable=True),
+                            row["TexUrlLegislacao"],
+                            _ibs_attributes(
+                                row,
+                                frozenset(
+                                    {
+                                        "CodClassTrib",
+                                        "Cst",
+                                        "NomeClassTrib",
+                                        "NomeReduzido",
+                                        "DthIniVig",
+                                        "DthFimVig",
+                                        "TexUrlLegislacao",
+                                    }
+                                ),
+                            ),
+                        )
+                        for row in dataset.classifications
+                    ),
+                )
+                cursor.executemany(
+                    """
+                    insert into tax_ingest.ibs_cbs_annex_link (
+                      release_id, cclasstrib_code, source_record_id, annex_number, code, code_type,
+                      permission, condition, exception, observation, valid_from, valid_to,
+                      annex_item_number, item_description, annex_description, attributes
+                    ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    on conflict (release_id, cclasstrib_code, source_record_id) do nothing
+                    """,
+                    (
+                        (
+                            local.release_id,
+                            row["cclasstrib_code"],
+                            row["source_record_id"],
+                            row["NroAnexo"],
+                            row["CodNcmNbs"],
+                            row["TipoCodigo"],
+                            row["TipoPermissao"],
+                            row["DescCondicao"],
+                            row["DescExcecao"],
+                            row["Observacao"],
+                            _source_timestamp(row["DthIniVig"], "anexo.DthIniVig"),
+                            _source_timestamp(row["DthFimVig"], "anexo.DthFimVig", nullable=True),
+                            row["NroItemAnexoLei"],
+                            row["DescItemAnexo"],
+                            row["DescAnexo"],
+                            _ibs_attributes(
+                                row,
+                                frozenset(
+                                    {
+                                        "cclasstrib_code",
+                                        "source_record_id",
+                                        "NroAnexo",
+                                        "CodNcmNbs",
+                                        "TipoCodigo",
+                                        "TipoPermissao",
+                                        "DescCondicao",
+                                        "DescExcecao",
+                                        "Observacao",
+                                        "DthIniVig",
+                                        "DthFimVig",
+                                        "NroItemAnexoLei",
+                                        "DescItemAnexo",
+                                        "DescAnexo",
+                                    }
+                                ),
+                            ),
+                        )
+                        for row in dataset.annex_links
+                    ),
+                )
+
+            counts = {
+                "tax_ingest.ibs_cbs_cst": ("cst_code", cst_count),
+                "tax_ingest.ibs_cbs_classification": ("cclasstrib_code", entry_count),
+                "tax_ingest.ibs_cbs_annex_link": ("source_record_id", annex_count),
+            }
+            for table, (key_column, expected) in counts.items():
+                result = connection.execute(
+                    f"select count(*) from {table} where release_id = %s", (local.release_id,)
+                ).fetchone()
+                if result is None or result[0] != expected:
+                    raise RuntimeError(f"contagem persistida IBS/CBS diverge em {key_column}")
+
+            quality_results = {
+                "entry_count": {"observed": entry_count},
+                "cst_count": {"observed": cst_count},
+                "annex_link_count": {"observed": annex_count},
+                "quality_policy": quality_policy,
+                "release_identity": {"release_id": local.release_id},
+                "snapshot_sha256": {"snapshot_sha256": local.snapshot_sha256},
+            }
+            with connection.cursor() as cursor:
+                cursor.executemany(
+                    """
+                    insert into tax_ingest.quality_result (release_id, check_name, passed, observed)
+                    values (%s, %s, true, %s)
+                    on conflict (release_id, check_name) do update set
+                      passed = excluded.passed, observed = excluded.observed, evaluated_at = now()
+                    """,
+                    (
+                        (local.release_id, check_name, Jsonb(observed))
+                        for check_name, observed in quality_results.items()
+                    ),
+                )
+            connection.execute(
+                """
+                insert into tax_ingest.ingestion_run (
+                  source_key, artifact_sha256, release_id, started_at, completed_at, status
+                ) values (%s, %s, %s, %s, %s, 'succeeded')
+                """,
+                (_IBS_CBS_SOURCE_KEY, local.artifact_sha256, local.release_id, started_at, datetime.now(UTC)),
+            )
+    except Exception as error:
+        _record_failed_ibs_cbs_run(connection, local, started_at, error)
+        raise
+
+    return StageResult(local.release_id, release_created, entry_count, 0)
+
+
 def publish_tipi_release(connection: Connection[Any], release_id: str) -> PublicationResult:
     """Publica TIPI aprovada atomically, sem atribuir vigência ausente na fonte."""
     if not _SHA256.fullmatch(release_id):
@@ -936,6 +1402,124 @@ def publish_tipi_release(connection: Connection[Any], release_id: str) -> Public
             on conflict (domain) do update set
               release_id = excluded.release_id,
               updated_at = excluded.updated_at
+            """,
+            (release_id, published_at),
+        )
+        connection.execute(
+            "update tax_ingest.dataset_release set status = 'approved', published_at = %s where release_id = %s",
+            (published_at, release_id),
+        )
+
+    return PublicationResult(release_id, True, entry_count, published_at)
+
+
+def publish_ibs_cbs_release(connection: Connection[Any], release_id: str) -> PublicationResult:
+    """Publica o snapshot IBS/CBS inteiro em transacao, sem expor estado parcial."""
+    if not _SHA256.fullmatch(release_id):
+        raise ValueError("release_id deve ser SHA-256 hexadecimal")
+    with connection.transaction():
+        _configure_transaction(connection, "contai:ibs-cbs:publish")
+        release = connection.execute(
+            """
+            select status, entry_count, metadata, published_at
+            from tax_ingest.dataset_release
+            where release_id = %s and domain = 'ibs_cbs'
+            for update
+            """,
+            (release_id,),
+        ).fetchone()
+        if release is None:
+            raise ValueError(f"release IBS/CBS inexistente: {release_id}")
+        status, entry_count, metadata_value, existing_published_at = release
+        metadata = _object(metadata_value, "metadata IBS/CBS")
+        checks = connection.execute(
+            "select check_name, passed from tax_ingest.quality_result where release_id = %s", (release_id,)
+        ).fetchall()
+        check_map = {str(name): bool(passed) for name, passed in checks}
+        if check_map.keys() != _IBS_CBS_QUALITY_CHECKS or not all(check_map.values()):
+            raise RuntimeError("release IBS/CBS nao possui todos os controles de qualidade aprovados")
+
+        private_counts = {
+            "tax_ingest.ibs_cbs_cst": _integer(metadata, "cst_count", "metadata IBS/CBS"),
+            "tax_ingest.ibs_cbs_classification": entry_count,
+            "tax_ingest.ibs_cbs_annex_link": _integer(metadata, "annex_link_count", "metadata IBS/CBS"),
+        }
+        for table, expected in private_counts.items():
+            result = connection.execute(f"select count(*) from {table} where release_id = %s", (release_id,)).fetchone()
+            if result is None or expected is None or result[0] != expected:
+                raise RuntimeError(f"contagem privada IBS/CBS diverge em {table}")
+
+        if status == "approved":
+            current = connection.execute(
+                "select release_id from tax_public.dataset_current where domain = 'ibs_cbs'"
+            ).fetchone()
+            if current is None or current[0] != release_id or existing_published_at is None:
+                raise RuntimeError("release IBS/CBS aprovada diverge do ponteiro publico; requer reparo manual")
+            for table, expected in (
+                ("tax_public.ibs_cbs_cst", private_counts["tax_ingest.ibs_cbs_cst"]),
+                ("tax_public.ibs_cbs_classification", entry_count),
+                ("tax_public.ibs_cbs_annex_link", private_counts["tax_ingest.ibs_cbs_annex_link"]),
+            ):
+                result = connection.execute(
+                    f"select count(*) from {table} where release_id = %s", (release_id,)
+                ).fetchone()
+                if result is None or result[0] != expected:
+                    raise RuntimeError(f"release IBS/CBS aprovada incompleta em {table}")
+            return PublicationResult(release_id, False, entry_count, existing_published_at)
+        if status != "candidate":
+            raise RuntimeError(f"status da release IBS/CBS nao pode ser publicado: {status}")
+
+        published_at = datetime.now(UTC)
+        connection.execute(
+            """
+            insert into tax_public.dataset_release (
+              release_id, domain, contract_version, source_act, source_as_of,
+              artifact_sha256, snapshot_sha256, entry_count, leaf_count, published_at
+            )
+            select release_id, domain, contract_version, source_act, source_as_of,
+                   artifact_sha256, snapshot_sha256, entry_count, leaf_count, %s
+            from tax_ingest.dataset_release where release_id = %s
+            on conflict (release_id) do nothing
+            """,
+            (published_at, release_id),
+        )
+        for table in ("ibs_cbs_cst", "ibs_cbs_classification", "ibs_cbs_annex_link"):
+            columns = {
+                "ibs_cbs_cst": "cst_code, description, valid_from, valid_to, attributes",
+                "ibs_cbs_classification": (
+                    "cclasstrib_code, cst_code, description, short_description, valid_from, valid_to, "
+                    "legislation_url, attributes"
+                ),
+                "ibs_cbs_annex_link": (
+                    "cclasstrib_code, source_record_id, annex_number, code, code_type, permission, condition, "
+                    "exception, observation, valid_from, valid_to, annex_item_number, item_description, "
+                    "annex_description, attributes"
+                ),
+            }[table]
+            connection.execute(
+                f"""
+                insert into tax_public.{table} (release_id, {columns})
+                select release_id, {columns}
+                from tax_ingest.{table} where release_id = %s
+                on conflict do nothing
+                """,
+                (release_id,),
+            )
+        public_counts = {
+            "tax_public.ibs_cbs_cst": private_counts["tax_ingest.ibs_cbs_cst"],
+            "tax_public.ibs_cbs_classification": entry_count,
+            "tax_public.ibs_cbs_annex_link": private_counts["tax_ingest.ibs_cbs_annex_link"],
+        }
+        for table, expected in public_counts.items():
+            result = connection.execute(f"select count(*) from {table} where release_id = %s", (release_id,)).fetchone()
+            if result is None or result[0] != expected:
+                raise RuntimeError(f"copia publica IBS/CBS ficou incompleta em {table}")
+        connection.execute(
+            """
+            insert into tax_public.dataset_current (domain, release_id, updated_at)
+            values ('ibs_cbs', %s, %s)
+            on conflict (domain) do update set
+              release_id = excluded.release_id, updated_at = excluded.updated_at
             """,
             (release_id, published_at),
         )

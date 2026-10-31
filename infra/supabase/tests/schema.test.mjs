@@ -44,6 +44,9 @@ test("migração cria fronteira privada e leitura pública governada", async () 
   assert.deepEqual(rls.rows, [
     { relname: "dataset_current" },
     { relname: "dataset_release" },
+    { relname: "ibs_cbs_annex_link" },
+    { relname: "ibs_cbs_classification" },
+    { relname: "ibs_cbs_cst" },
     { relname: "ncm_entry" },
     { relname: "tipi_entry" },
   ]);
@@ -52,10 +55,13 @@ test("migração cria fronteira privada e leitura pública governada", async () 
     select c.reloptions
     from pg_class as c
     join pg_namespace as n on n.oid = c.relnamespace
-    where n.nspname = 'tax_public' and c.relname in ('ncm_current', 'tipi_current')
+    where n.nspname = 'tax_public' and c.relname in (
+      'ncm_current', 'tipi_current', 'ibs_cbs_cst_current',
+      'ibs_cbs_classification_current', 'ibs_cbs_annex_current'
+    )
     order by c.relname
   `);
-  assert.equal(views.rows.length, 2);
+  assert.equal(views.rows.length, 5);
   assert.ok(views.rows.every((view) => view.reloptions.includes("security_invoker=true")));
 
   await db.exec("set role tax_ingest_writer");
@@ -88,6 +94,35 @@ test("migração cria fronteira privada e leitura pública governada", async () 
     values (repeat('d', 64), '0101.21.00', '', null, 'Reprodutores de raça pura', 'NT');
     insert into tax_public.dataset_current (domain, release_id, updated_at)
     values ('tipi', repeat('d', 64), now());
+
+    insert into tax_public.dataset_release (
+      release_id, domain, contract_version, source_act, source_as_of,
+      artifact_sha256, snapshot_sha256, entry_count, leaf_count, published_at
+    ) values (
+      repeat('1', 64), 'ibs_cbs', 'ibs-cbs-v1', 'Tabela SVRS', null,
+      repeat('2', 64), repeat('3', 64), 1, 0, now()
+    );
+    insert into tax_public.ibs_cbs_cst (
+      release_id, cst_code, description, valid_from, valid_to, attributes
+    ) values (
+      repeat('1', 64), '000', 'Tributação integral', timestamp '2025-05-01 00:00:00', null, '{"IndExigeTrib":true}'
+    );
+    insert into tax_public.ibs_cbs_classification (
+      release_id, cclasstrib_code, cst_code, description, short_description,
+      valid_from, valid_to, legislation_url, attributes
+    ) values (
+      repeat('1', 64), '000001', '000', 'Tributação integral', 'Tributação integral',
+      timestamp '2025-05-05 00:00:00', null, 'https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp214.htm#art4', '{}'
+    );
+    insert into tax_public.ibs_cbs_annex_link (
+      release_id, cclasstrib_code, source_record_id, annex_number, code,
+      code_type, valid_from, valid_to, attributes
+    ) values (
+      repeat('1', 64), '000001', 9001, 90111, '106042100', 'NBS',
+      timestamp '2026-01-01 00:00:00', null, '{}'
+    );
+    insert into tax_public.dataset_current (domain, release_id, updated_at)
+    values ('ibs_cbs', repeat('1', 64), now());
   `);
   await expectDenied(() => db.exec("delete from tax_public.dataset_current where domain = 'ncm'"));
 
@@ -96,6 +131,10 @@ test("migração cria fronteira privada e leitura pública governada", async () 
   assert.deepEqual(current.rows, [{ code: "01", description: "Animais vivos." }]);
   const currentTipi = await db.query("select ncm_code, ex_code, ipi_rate from tax_public.tipi_current");
   assert.deepEqual(currentTipi.rows, [{ ncm_code: "0101.21.00", ex_code: null, ipi_rate: "NT" }]);
+  const currentIbs = await db.query("select cclasstrib_code, cst_code from tax_public.ibs_cbs_classification_current");
+  assert.deepEqual(currentIbs.rows, [{ cclasstrib_code: "000001", cst_code: "000" }]);
+  const currentIbsAnnex = await db.query("select code_type, code from tax_public.ibs_cbs_annex_current");
+  assert.deepEqual(currentIbsAnnex.rows, [{ code_type: "NBS", code: "106042100" }]);
   await expectDenied(() => db.query("select * from tax_ingest.source_registry"));
   await expectDenied(() =>
     db.exec("insert into tax_public.dataset_current (domain, release_id, updated_at) values ('ncm', repeat('a', 64), now())"),

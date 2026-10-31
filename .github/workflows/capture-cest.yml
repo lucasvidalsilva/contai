@@ -1,0 +1,62 @@
+name: Capture CEST source
+
+on:
+  workflow_dispatch:
+    inputs:
+      timeout:
+        description: Request timeout in seconds
+        required: false
+        default: "45"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: capture-confaz-cest
+  cancel-in-progress: false
+
+jobs:
+  capture-cest:
+    name: Archive official CONFAZ source
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: packages/tax-data/uv.lock
+
+      - name: Install locked Python environment
+        run: uv sync --locked --project packages/tax-data
+
+      - name: Capture the source once
+        id: capture
+        shell: bash
+        env:
+          CAPTURE_TIMEOUT: ${{ inputs.timeout || '45' }}
+        run: |
+          set -euo pipefail
+          uv run --project packages/tax-data contai-tax-data capture-cest \
+            --output var/tax-data \
+            --timeout "$CAPTURE_TIMEOUT" \
+            | tee capture-result.json
+          {
+            echo '## Captura bruta CEST'
+            echo
+            echo 'O HTML oficial foi arquivado sem interpretação de vigência e sem escrita no Supabase.'
+            echo
+            echo '```json'
+            cat capture-result.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload source artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cest-capture-${{ github.run_id }}
+          path: var/tax-data/cest/
+          if-no-files-found: error
+          retention-days: 14

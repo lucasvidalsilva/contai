@@ -1,0 +1,62 @@
+name: Capture IBS CBS
+
+on:
+  workflow_dispatch:
+    inputs:
+      timeout:
+        description: Request timeout in seconds
+        required: false
+        default: "60"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: capture-svrs-ibs-cbs
+  cancel-in-progress: false
+
+jobs:
+  capture-ibs-cbs:
+    name: Capture and validate official IBS CBS catalog
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: packages/tax-data/uv.lock
+
+      - name: Install locked Python environment
+        run: uv sync --locked --project packages/tax-data
+
+      - name: Capture once, validate, and create local release
+        id: capture
+        shell: bash
+        env:
+          CAPTURE_TIMEOUT: ${{ inputs.timeout || '60' }}
+        run: |
+          set -euo pipefail
+          uv run --project packages/tax-data contai-tax-data capture-ibs-cbs \
+            --output var/tax-data \
+            --timeout "$CAPTURE_TIMEOUT" \
+            | tee capture-result.json
+          {
+            echo '## Captura IBS/CBS'
+            echo
+            echo 'A página oficial pública foi capturada uma vez e validada localmente. Esta execução não escreve no Supabase.'
+            echo
+            echo '```json'
+            cat capture-result.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload capture artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ibs-cbs-capture-${{ github.run_id }}
+          path: var/tax-data/ibs-cbs/
+          if-no-files-found: error
+          retention-days: 14
