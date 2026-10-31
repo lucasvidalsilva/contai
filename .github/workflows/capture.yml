@@ -1,6 +1,10 @@
 name: Capture NCM
 
 on:
+  schedule:
+    # Siscomex informa atualização diária à meia-noite no horário de Brasília.
+    # Executa após a janela de atualização (08:30 UTC = 04:30 em Cuiabá).
+    - cron: "30 8 * * *"
   workflow_dispatch:
     inputs:
       attempts:
