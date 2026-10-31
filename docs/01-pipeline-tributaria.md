@@ -1,7 +1,7 @@
 # Etapa 01 — Pipeline tributária
 
 > **contAI · Especificação de execução v2.0 · 30/10/2026**  
-> **Status:** Marcos A e B concluídos para a NCM; Marco C implantado e validado no Supabase dev, incluindo publicação NCM; CI offline do Marco D em preparação.
+> **Status:** Marcos A e B concluídos para a NCM; Marco C implantado e validado no Supabase dev, incluindo publicação NCM; CI offline e captura manual do Marco D configurados.
 > **Escopo autorizado:** exclusivamente a plataforma de dados tributários. Motor fiscal, desktop, landing page, IA e MCP permanecem fora desta etapa.
 
 ## 1. Objetivo
@@ -364,7 +364,7 @@ Artefatos implementados em `packages/tax-data/`, com banco remoto somente no amb
 5. **Concluído — testes offline:** fixture pequena derivada da captura oficial e testes de parsing, schema, malformed, indisponibilidade/timeout, retry, vigência, duplicidade, regressão, quarentena, mudança e reexecução.
 6. **Concluído localmente — Marco C:** migração, staging privado, controles de qualidade, publicação transacional, consulta pública versionada, grants/RLS e testes de acesso e rollback.
 7. **Concluído — Supabase dev:** migrations e configuração da Data API aplicadas após `dry-run`; NCM validada, staged e publicada; consultas SQL, RLS, grants, acesso HTTP, idempotência e advisors verificados.
-8. **Em preparação — Marco D:** CI offline em pull requests e pushes para `main`; nenhuma agenda ou escrita remota automatizada será ativada neste marco.
+8. **Concluído parcialmente — Marco D:** CI offline em pull requests e pushes para `main`; captura NCM somente por `workflow_dispatch`, com resumo e artefatos retidos por 14 dias. Não conecta ao banco e não publica.
 
 Comandos locais padronizados:
 
@@ -380,7 +380,7 @@ npm run test:db-schema
 npm run test:db-integration
 ```
 
-O diretório `var/` é local e ignorado pelo Git. O armazenamento definitivo de originais grandes continua pendente; esta implementação não escolhe provedor, não cria custos, não altera produção e não versiona secrets.
+O diretório `var/` é local e ignorado pelo Git. O armazenamento definitivo de originais grandes continua pendente; o workflow de captura guarda artefatos de execução por 14 dias no GitHub Actions, sem ativar agenda, não altera produção e não versiona secrets.
 
 ### 12.6 Implementação do Marco C
 

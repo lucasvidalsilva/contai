@@ -1,0 +1,62 @@
+name: Capture NCM
+
+on:
+  workflow_dispatch:
+    inputs:
+      attempts:
+        description: Maximum HTTP attempts
+        required: false
+        default: "3"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: capture-siscomex-ncm
+  cancel-in-progress: false
+
+jobs:
+  capture-ncm:
+    name: Capture and validate official NCM
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: packages/tax-data/uv.lock
+
+      - name: Install locked Python environment
+        run: uv sync --locked --project packages/tax-data
+
+      - name: Capture, validate, and create local release
+        id: capture
+        shell: bash
+        env:
+          CAPTURE_ATTEMPTS: ${{ inputs.attempts || '3' }}
+        run: |
+          set -euo pipefail
+          uv run --project packages/tax-data contai-tax-data capture-ncm \
+            --output var/tax-data \
+            --attempts "$CAPTURE_ATTEMPTS" \
+            | tee capture-result.json
+          {
+            echo '## Captura NCM'
+            echo
+            echo 'A fonte oficial foi capturada e validada localmente. Esta execução não escreve no Supabase.'
+            echo
+            echo '```json'
+            cat capture-result.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload capture artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ncm-capture-${{ github.run_id }}
+          path: var/tax-data/
+          if-no-files-found: error
+          retention-days: 14
