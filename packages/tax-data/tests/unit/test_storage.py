@@ -92,3 +92,22 @@ def test_schema_change_is_archived_and_quarantined_without_release(tmp_path: Pat
     assert len(list((tmp_path / "artifacts" / "sha256").rglob("*.json"))) == 1
     assert len(list((tmp_path / "quarantine").glob("*.json"))) == 1
     assert not (tmp_path / "state" / "ncm-current.json").exists()
+
+
+def test_invalid_capture_preserves_last_valid_release(tmp_path: Path) -> None:
+    valid = ingest_ncm_artifact(artifact(SAMPLE.read_bytes()), tmp_path, quality_policy=SAMPLE_POLICY)
+    value = json.loads(SAMPLE.read_text(encoding="utf-8"))
+    value["Nomenclaturas"][0]["Campo_Novo"] = "mudanca"
+    changed_schema = json.dumps(value, ensure_ascii=False).encode()
+
+    with pytest.raises(NcmContractError, match="schema mudou"):
+        ingest_ncm_artifact(
+            artifact(changed_schema, captured_at=CAPTURED_AT + timedelta(days=1)),
+            tmp_path,
+            quality_policy=SAMPLE_POLICY,
+        )
+
+    pointer = json.loads((tmp_path / "state" / "ncm-current.json").read_text(encoding="utf-8"))
+    assert pointer["release_id"] == valid.release_id
+    assert len(list((tmp_path / "releases").iterdir())) == 1
+    assert len(list((tmp_path / "quarantine").glob("*.json"))) == 1
