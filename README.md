@@ -114,7 +114,7 @@ A execução será incremental. **Cada etapa precisa de critérios de aceite e t
 
 | Etapa | Objetivo | Situação |
 | --- | --- | --- |
-| **01 · Pipeline tributária** | Extrair e versionar dados oficiais com Python, GitHub Actions e Supabase PostgreSQL. | **NCM publicada no Supabase dev; NCM com captura diária e TIPI com captura local/manual. CI offline; publicação automatizada e demais fontes ainda pendentes** |
+| **01 · Pipeline tributária** | Extrair e versionar dados oficiais com Python, GitHub Actions e Supabase PostgreSQL. | **NCM publicada no Supabase dev; TIPI e IBS/CBS com captura, staging e publicação implementados localmente; IBS/CBS capturada manualmente. Migrations TIPI/IBS-CBS e publicação dessas fontes no Supabase ainda pendentes; CEST e normas em investigação** |
 | **02 · Motor fiscal** | Validar documentos sintéticos de NF-e e produzir alertas fundamentados. | Planejada |
 | **03 · Aplicativo** | Criar a experiência de conferência local com Tauri. | Planejada |
 | **04 · Landing page** | Apresentar o produto e disponibilizar a distribuição. | Planejada |

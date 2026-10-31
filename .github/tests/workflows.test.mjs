@@ -42,3 +42,15 @@ test("captura TIPI é manual, gera artefato e não publica no banco", async () =
   assert.ok(workflow.jobs["capture-tipi"].steps.some((step) => step.uses?.startsWith("actions/upload-artifact@")));
   assert.ok(!workflow.jobs["capture-tipi"].steps.some((step) => step.run?.includes("publish-tipi")));
 });
+
+test("captura IBS/CBS é manual, faz uma requisição e não publica no banco", async () => {
+  const workflow = await readWorkflow("capture-ibs-cbs.yml");
+
+  assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
+  const capture = workflow.jobs["capture-ibs-cbs"].steps.find((step) => step.run?.includes("capture-ibs-cbs"));
+  assert.ok(capture);
+  assert.equal(capture.env.CAPTURE_TIMEOUT, "${{ inputs.timeout || '60' }}");
+  assert.ok(workflow.jobs["capture-ibs-cbs"].steps.some((step) => step.uses?.startsWith("actions/upload-artifact@")));
+  assert.ok(!workflow.jobs["capture-ibs-cbs"].steps.some((step) => step.run?.includes("publish-ibs-cbs")));
+  assert.ok(!workflow.jobs["capture-ibs-cbs"].steps.some((step) => step.env?.SUPABASE_URL));
+});
