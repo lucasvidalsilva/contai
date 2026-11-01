@@ -15,9 +15,10 @@ from pathlib import Path
 
 from contai_tax_data.cest_capture import CEST_SOURCE_URL
 
-CEST_CANDIDATE_CONTRACT = "cest-candidate-v4"
+CEST_CANDIDATE_CONTRACT = "cest-candidate-v5"
 _CEST_CODE = re.compile(r"^\d{2}\.\d{3}\.\d{2}$")
 _EXPECTED_HEADER = ("ITEM", "CEST", "NCM/SH", "DESCRICAO")
+_SEGMENT_HEADER = ("ITEM", "NOME DO SEGMENTO", "CODIGO DO SEGMENTO")
 
 
 class CestCandidateContractError(ValueError):
@@ -33,6 +34,8 @@ class CestCandidate:
     ncm_sh_raw: str
     description: str
     source_context: tuple[str, ...]
+    segment_code: str
+    segment_name: str | None
     source_cell_classes: tuple[str, ...]
     source_cell_tags: tuple[tuple[str, ...], ...]
     legal_status: str = "unresolved"
@@ -43,6 +46,8 @@ class CestCandidateExtractionResult:
     artifact_sha256: str
     candidate_set_sha256: str
     candidate_count: int
+    segment_matched_count: int
+    segment_unmatched_count: int
     candidates_path: str
     candidates_created: bool
     manifest_created: bool
@@ -76,7 +81,9 @@ class _TableParser(HTMLParser):
         self.cells_classes: list[str] = []
         self.cells_tags: list[tuple[str, ...]] = []
         self.headers: set[int] = set()
+        self.table_kinds: dict[int, str] = {}
         self.candidates: list[CestCandidate] = []
+        self.segment_names: dict[str, str] = {}
         self.heading_parts: list[str] = []
         self.heading_active = False
         self.heading_context: list[str] = []
@@ -144,25 +151,40 @@ class _TableParser(HTMLParser):
                     self.heading_context = self.heading_context[-8:]
 
     def _finish_row(self) -> None:
+        row_table_index = self.row_table_index
+        if row_table_index is None:
+            return
         normalized = tuple(_header_text(cell) for cell in self.cells)
         if normalized == _EXPECTED_HEADER:
-            assert self.row_table_index is not None
-            self.headers.add(self.row_table_index)
+            self.headers.add(row_table_index)
+            self.table_kinds[row_table_index] = "cest"
             return
-        if self.row_table_index not in self.headers or len(self.cells) != 4:
+        if normalized == _SEGMENT_HEADER:
+            self.table_kinds[row_table_index] = "segment"
+            return
+        table_kind = self.table_kinds.get(row_table_index)
+        if table_kind == "segment" and len(self.cells) == 3:
+            _, segment_name, segment_code = self.cells
+            if re.fullmatch(r"\d{2}", segment_code) and segment_name:
+                self.segment_names[segment_code] = segment_name
+            return
+        if table_kind != "cest" or row_table_index not in self.headers or len(self.cells) != 4:
             return
         item, cest_code, ncm_sh_raw, description = self.cells
         if not _CEST_CODE.fullmatch(cest_code) or not item or not ncm_sh_raw or not description:
             return
+        segment_code = cest_code[:2]
         self.candidates.append(
             CestCandidate(
-                source_table_index=self.row_table_index,
+                source_table_index=row_table_index,
                 source_row_index=self.row_index,
                 item_label=item,
                 cest_code=cest_code,
                 ncm_sh_raw=ncm_sh_raw,
                 description=description,
-                source_context=self.context_by_table.get(self.row_table_index, ()),
+                source_context=self.context_by_table.get(row_table_index, ()),
+                segment_code=segment_code,
+                segment_name=self.segment_names.get(segment_code),
                 source_cell_classes=tuple(self.cells_classes),
                 source_cell_tags=tuple(self.cells_tags),
             )
@@ -225,6 +247,8 @@ def diff_cest_candidate_snapshots(previous: bytes, current: bytes) -> CestCandid
         "ncm_sh_raw",
         "description",
         "source_context",
+        "segment_code",
+        "segment_name",
         "source_cell_classes",
         "source_cell_tags",
         "legal_status",
@@ -310,6 +334,8 @@ def extract_cest_candidate_artifact(artifact_path: Path, output_dir: Path) -> Ce
         "candidate_count": len(candidates),
         "candidate_set_sha256": candidate_set_sha,
         "contract_version": CEST_CANDIDATE_CONTRACT,
+        "segment_matched_count": sum(candidate.segment_name is not None for candidate in candidates),
+        "segment_unmatched_count": sum(candidate.segment_name is None for candidate in candidates),
         "parser_id": CEST_CANDIDATE_CONTRACT,
         "source_url": CEST_SOURCE_URL,
         "status": "candidates_unresolved",
@@ -323,6 +349,8 @@ def extract_cest_candidate_artifact(artifact_path: Path, output_dir: Path) -> Ce
         artifact_sha256=artifact_sha,
         candidate_set_sha256=candidate_set_sha,
         candidate_count=len(candidates),
+        segment_matched_count=sum(candidate.segment_name is not None for candidate in candidates),
+        segment_unmatched_count=sum(candidate.segment_name is None for candidate in candidates),
         candidates_path=relative_path.as_posix(),
         candidates_created=candidates_created,
         manifest_created=manifest_created,

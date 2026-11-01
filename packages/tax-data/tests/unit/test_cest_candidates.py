@@ -18,15 +18,20 @@ FIXTURE = Path(__file__).parents[1] / "fixtures" / "cest_table_sample.html"
 def test_candidate_parser_preserves_source_values_and_unresolved_status() -> None:
     candidates = parse_cest_candidates(FIXTURE.read_bytes())
 
-    assert len(candidates) == 2
+    assert len(candidates) == 3
     assert candidates[0].cest_code == "01.001.00"
     assert candidates[0].ncm_sh_raw == "3815.12.10 3815.12.90"
-    assert candidates[0].source_context == ("ANEXO I", "AUTOPEÇAS")
+    assert candidates[0].source_context == ("ANEXO II", "AUTOPEÇAS")
+    assert candidates[0].segment_code == "01"
+    assert candidates[0].segment_name == "Autopeças"
     assert candidates[0].legal_status == "unresolved"
     assert candidates[1].cest_code == "01.002.00"
     assert candidates[1].description == "Redação histórica preservada"
     assert "s" in candidates[1].source_cell_tags[1]
     assert candidates[1].legal_status == "unresolved"
+    assert candidates[2].segment_code == "99"
+    assert candidates[2].segment_name is None
+    assert candidates[2].legal_status == "unresolved"
 
 
 def test_candidate_parser_does_not_treat_nested_table_cells_as_columns() -> None:
@@ -65,7 +70,9 @@ def test_candidate_extraction_is_immutable_and_idempotent(tmp_path: Path) -> Non
     first = extract_cest_candidate_artifact(artifact, tmp_path / "store")
     second = extract_cest_candidate_artifact(artifact, tmp_path / "store")
 
-    assert first.candidate_count == 2
+    assert first.candidate_count == 3
+    assert first.segment_matched_count == 2
+    assert first.segment_unmatched_count == 1
     assert first.candidate_set_sha256 == second.candidate_set_sha256
     assert first.candidates_created and first.manifest_created
     assert not second.candidates_created and not second.manifest_created
@@ -74,7 +81,7 @@ def test_candidate_extraction_is_immutable_and_idempotent(tmp_path: Path) -> Non
 
 
 def test_candidate_diff_counts_multiset_changes_without_treating_row_movement_as_change() -> None:
-    old_candidates = parse_cest_candidates(FIXTURE.read_bytes())
+    old_candidates = parse_cest_candidates(FIXTURE.read_bytes())[:2]
     new_candidates = (
         replace(old_candidates[0], source_row_index=old_candidates[0].source_row_index + 10),
         replace(old_candidates[1], description="Descrição alterada"),
