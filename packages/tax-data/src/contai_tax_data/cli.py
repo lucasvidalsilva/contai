@@ -11,6 +11,7 @@ from pathlib import Path
 
 import psycopg
 
+from contai_tax_data.cest_candidates import extract_cest_candidate_artifact
 from contai_tax_data.cest_capture import capture_cest
 from contai_tax_data.ibs_cbs import IBS_CBS_ACCEPT
 from contai_tax_data.ibs_cbs_storage import capture_ibs_cbs
@@ -57,6 +58,12 @@ def build_parser() -> argparse.ArgumentParser:
     lc214 = commands.add_parser("capture-lc214", help="captura e arquiva o texto oficial compilado da LC 214/2025")
     lc214.add_argument("--output", type=Path, default=Path("var/tax-data"))
     lc214.add_argument("--timeout", type=float, default=45.0, dest="timeout_seconds")
+
+    cest_candidates = commands.add_parser(
+        "extract-cest-candidates", help="extrai linhas candidatas do HTML CEST, sem decidir vigência"
+    )
+    cest_candidates.add_argument("artifact", type=Path, help="caminho do HTML CEST bruto já capturado")
+    cest_candidates.add_argument("--output", type=Path, default=Path("var/tax-data/cest"))
 
     stage_ibs_cbs = commands.add_parser(
         "stage-ibs-cbs", help="revalida e persiste uma release IBS/CBS no schema privado"
@@ -116,6 +123,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         client = SourceClient(accept="text/html", attempts=1, timeout_seconds=args.timeout_seconds)
         law_result = capture_lc214(args.output / "laws" / "lc214", client=client)
         print(json.dumps(asdict(law_result), ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "extract-cest-candidates":
+        candidates_result = extract_cest_candidate_artifact(args.artifact, args.output)
+        print(json.dumps(asdict(candidates_result), ensure_ascii=False, sort_keys=True))
         return 0
     if args.command == "stage-ibs-cbs":
         with psycopg.connect(_database_url(), sslmode="require") as connection:

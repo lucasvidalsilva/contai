@@ -62,6 +62,9 @@ test("captura CEST é manual, arquiva fonte bruta e não publica no banco", asyn
   const capture = workflow.jobs["capture-cest"].steps.find((step) => step.run?.includes("capture-cest"));
   assert.ok(capture);
   assert.equal(capture.env.CAPTURE_TIMEOUT, "${{ inputs.timeout || '45' }}");
+  const extract = workflow.jobs["capture-cest"].steps.find((step) => step.run?.includes("extract-cest-candidates"));
+  assert.ok(extract);
+  assert.equal(extract["continue-on-error"], true, "uma mudança no HTML não pode impedir o arquivamento bruto");
   assert.ok(workflow.jobs["capture-cest"].steps.some((step) => step.uses?.startsWith("actions/upload-artifact@")));
   assert.ok(!workflow.jobs["capture-cest"].steps.some((step) => step.run?.includes("publish-cest")));
   assert.ok(!workflow.jobs["capture-cest"].steps.some((step) => step.env?.SUPABASE_URL));
