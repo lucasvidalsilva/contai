@@ -33,7 +33,8 @@ def test_capture_archives_original_and_records_law_metadata(tmp_path: Path) -> N
     assert (tmp_path / result.raw_path).read_bytes() == artifact.body
     pointer = (tmp_path / "state" / "lc214-latest-capture.json").read_text(encoding="utf-8")
     assert '"status": "captured_raw_unparsed"' in pointer
-    assert '"source_act": "Lei Complementar 214/2025 (texto compilado)"' in pointer
+    assert '"source_act": "Lei Complementar 214/2025 (texto atualizado pela Câmara dos Deputados)"' in pointer
+    assert '"source_authority": "Câmara dos Deputados - Legislação Informatizada"' in pointer
     assert "must-not-be-stored" not in pointer
     assert not list(tmp_path.glob("releases/**"))
 

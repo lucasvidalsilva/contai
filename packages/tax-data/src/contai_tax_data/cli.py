@@ -56,7 +56,9 @@ def build_parser() -> argparse.ArgumentParser:
     cest.add_argument("--output", type=Path, default=Path("var/tax-data"))
     cest.add_argument("--timeout", type=float, default=45.0, dest="timeout_seconds")
 
-    lc214 = commands.add_parser("capture-lc214", help="captura e arquiva o texto oficial compilado da LC 214/2025")
+    lc214 = commands.add_parser(
+        "capture-lc214", help="captura e arquiva a página oficial atualizada da LC 214/2025 (Câmara)"
+    )
     lc214.add_argument("--output", type=Path, default=Path("var/tax-data"))
     lc214.add_argument("--timeout", type=float, default=45.0, dest="timeout_seconds")
 

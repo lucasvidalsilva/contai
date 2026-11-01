@@ -13,9 +13,9 @@ from typing import Protocol
 
 from contai_tax_data.source import RetrievedArtifact
 
-LC_214_SOURCE_URL = "https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp214.htm"
-LC_214_SOURCE_ACT = "Lei Complementar 214/2025 (texto compilado)"
-NORMATIVE_CAPTURE_CONTRACT = "planalto-law-raw-v1"
+LC_214_SOURCE_URL = "https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-normaatualizada-pl.html"
+LC_214_SOURCE_ACT = "Lei Complementar 214/2025 (texto atualizado pela Câmara dos Deputados)"
+NORMATIVE_CAPTURE_CONTRACT = "camara-law-current-raw-v1"
 _SAFE_HEADERS = frozenset({"content-type", "content-length", "etag", "last-modified", "cache-control"})
 
 
@@ -65,7 +65,7 @@ def _write_pointer(path: Path, content: bytes) -> None:
 
 
 def capture_lc214_artifact(artifact: RetrievedArtifact, output_dir: Path) -> NormativeCaptureResult:
-    """Armazena resposta do Planalto por conteúdo e preserva observações HTTP."""
+    """Armazena texto atualizado oficial da Câmara por conteúdo, sem interpretar vigência."""
     if artifact.requested_url != LC_214_SOURCE_URL:
         raise ValueError("URL solicitada nao corresponde a fonte LC 214 cadastrada")
     if not 200 <= artifact.status < 300:
@@ -96,7 +96,7 @@ def capture_lc214_artifact(artifact: RetrievedArtifact, output_dir: Path) -> Nor
         "requested_url": artifact.requested_url,
         "response_headers": safe_headers,
         "source_act": LC_214_SOURCE_ACT,
-        "source_authority": "Presidencia da Republica - Planalto",
+        "source_authority": "Câmara dos Deputados - Legislação Informatizada",
         "status": "captured_raw_unparsed",
     }
     observation_path = root / "artifacts" / "observations" / digest / f"{captured_at.replace(':', '-')}.json"

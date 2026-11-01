@@ -52,3 +52,18 @@ def test_versioned_cest_snapshot_is_reproducible_and_remains_unresolved() -> Non
     assert candidate_manifest["candidate_count"] == len(records) == 1_569
     assert cest_candidates_jsonl(parse_cest_candidates(raw), current["artifact_sha256"]) == snapshot
     assert all(record["legal_status"] == "unresolved" for record in records)
+
+
+def test_versioned_lc214_official_capture_preserves_raw_provenance() -> None:
+    root = DATA_ROOT / "laws" / "lc214"
+    observation = json.loads((root / "state" / "lc214-latest-capture.json").read_text(encoding="utf-8"))
+    artifact = (root / observation["raw_path"]).read_bytes()
+
+    assert hashlib.sha256(artifact).hexdigest() == observation["artifact_sha256"]
+    assert observation["artifact_sha256"] == "dc87a43e7a4c293bc3c47817754286438db33a7c42472eb0400258e7707a2bde"
+    assert len(artifact) == observation["byte_size"] == 3_095_827
+    assert observation["http_status"] == 200
+    assert observation["source_authority"] == "Câmara dos Deputados - Legislação Informatizada"
+    assert observation["contract_version"] == "camara-law-current-raw-v1"
+    assert b"Lei Complementar n\xc2\xba 214" in artifact
+    assert not list(root.glob("releases/**"))
