@@ -24,6 +24,19 @@ def test_candidate_parser_preserves_source_values_and_unresolved_status() -> Non
     assert candidates[1].legal_status == "unresolved"
 
 
+def test_candidate_parser_does_not_treat_nested_table_cells_as_columns() -> None:
+    body = (
+        b"<table><tr><td>ITEM</td><td>CEST</td><td>NCM/SH</td><td>DESCRICAO</td></tr>"
+        b"<tr><td>1</td><td>01.001.00</td><td>3815</td><td>texto antes"
+        b"<table><tr><td>layout</td></tr></table>texto depois</td></tr></table>"
+    )
+
+    candidates = parse_cest_candidates(body)
+
+    assert len(candidates) == 1
+    assert candidates[0].description == "texto antestexto depois"
+
+
 @pytest.mark.parametrize(
     ("body", "message"),
     [

@@ -47,10 +47,13 @@ class CestCandidateExtractionResult:
 class _TableParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
-        self.table_index = -1
+        self.table_counter = -1
+        self.table_stack: list[int] = []
+        self.row_table_index: int | None = None
         self.row_index = 0
         self.in_row = False
         self.in_cell = False
+        self.cell_table_index: int | None = None
         self.cell_parts: list[str] = []
         self.cells: list[str] = []
         self.headers: set[int] = set()
@@ -59,42 +62,51 @@ class _TableParser(HTMLParser):
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         del attrs
         if tag == "table":
-            self.table_index += 1
+            self.table_counter += 1
+            self.table_stack.append(self.table_counter)
         elif tag == "tr":
+            if self.in_row or not self.table_stack:
+                return
             self.in_row = True
+            self.row_table_index = self.table_stack[-1]
             self.row_index += 1
             self.cells = []
-        elif tag in {"td", "th"} and self.in_row:
+        elif tag in {"td", "th"} and self.in_row and self.table_stack[-1] == self.row_table_index:
             self.in_cell = True
+            self.cell_table_index = self.row_table_index
             self.cell_parts = []
 
     def handle_data(self, data: str) -> None:
-        if self.in_cell:
+        if self.in_cell and self.table_stack and self.table_stack[-1] == self.cell_table_index:
             self.cell_parts.append(data)
 
     def handle_endtag(self, tag: str) -> None:
-        if tag in {"td", "th"} and self.in_cell:
+        if tag in {"td", "th"} and self.in_cell and self.table_stack and self.table_stack[-1] == self.cell_table_index:
             self.cells.append(_clean_text("".join(self.cell_parts)))
             self.in_cell = False
-        elif tag == "tr" and self.in_row:
+            self.cell_table_index = None
+        elif tag == "tr" and self.in_row and self.table_stack and self.table_stack[-1] == self.row_table_index:
             self._finish_row()
             self.in_row = False
+            self.row_table_index = None
         elif tag == "table":
-            self.in_cell = False
+            if self.table_stack:
+                self.table_stack.pop()
 
     def _finish_row(self) -> None:
         normalized = tuple(_header_text(cell) for cell in self.cells)
         if normalized == _EXPECTED_HEADER:
-            self.headers.add(self.table_index)
+            assert self.row_table_index is not None
+            self.headers.add(self.row_table_index)
             return
-        if self.table_index not in self.headers or len(self.cells) != 4:
+        if self.row_table_index not in self.headers or len(self.cells) != 4:
             return
         item, cest_code, ncm_sh_raw, description = self.cells
         if not _CEST_CODE.fullmatch(cest_code) or not item or not ncm_sh_raw or not description:
             return
         self.candidates.append(
             CestCandidate(
-                source_table_index=self.table_index,
+                source_table_index=self.row_table_index,
                 source_row_index=self.row_index,
                 item_label=item,
                 cest_code=cest_code,
