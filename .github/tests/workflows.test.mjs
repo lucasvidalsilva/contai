@@ -66,3 +66,15 @@ test("captura CEST é manual, arquiva fonte bruta e não publica no banco", asyn
   assert.ok(!workflow.jobs["capture-cest"].steps.some((step) => step.run?.includes("publish-cest")));
   assert.ok(!workflow.jobs["capture-cest"].steps.some((step) => step.env?.SUPABASE_URL));
 });
+
+test("captura LC 214 é manual, arquiva fonte bruta e não publica no banco", async () => {
+  const workflow = await readWorkflow("capture-lc214.yml");
+
+  assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
+  const capture = workflow.jobs["capture-lc214"].steps.find((step) => step.run?.includes("capture-lc214"));
+  assert.ok(capture);
+  assert.equal(capture.env.CAPTURE_TIMEOUT, "${{ inputs.timeout || '45' }}");
+  assert.ok(workflow.jobs["capture-lc214"].steps.some((step) => step.uses?.startsWith("actions/upload-artifact@")));
+  assert.ok(!workflow.jobs["capture-lc214"].steps.some((step) => step.run?.includes("publish-")));
+  assert.ok(!workflow.jobs["capture-lc214"].steps.some((step) => step.env?.SUPABASE_URL));
+});
