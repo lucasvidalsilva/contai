@@ -14,6 +14,7 @@ import psycopg
 from contai_tax_data.cest_candidates import diff_cest_candidate_snapshots, extract_cest_candidate_artifact
 from contai_tax_data.cest_capture import capture_cest
 from contai_tax_data.cest_postgres import stage_cest_candidates
+from contai_tax_data.confaz_act import extract_confaz_act_artifact
 from contai_tax_data.confaz_discovery import (
     capture_confaz_act,
     capture_confaz_sitemap,
@@ -111,6 +112,14 @@ def build_parser() -> argparse.ArgumentParser:
     confaz_references.add_argument("observation", type=Path, help="observação imutável da captura CEST")
     confaz_references.add_argument("--catalog-root", type=Path, default=Path("data/tax-data/confaz"))
     confaz_references.add_argument("--output", type=Path, default=Path("data/tax-data/confaz"))
+
+    confaz_extract = commands.add_parser(
+        "extract-confaz-act",
+        help="extrai campos literais e blocos estruturais de um ato CONFAZ capturado",
+    )
+    confaz_extract.add_argument("artifact", type=Path, help="HTML do ato CONFAZ já arquivado")
+    confaz_extract.add_argument("observation", type=Path, help="observação imutável da captura do ato")
+    confaz_extract.add_argument("--output", type=Path, default=Path("data/tax-data/confaz"))
 
     cest_candidates = commands.add_parser(
         "extract-cest-candidates", help="extrai linhas candidatas do HTML CEST, sem decidir vigência"
@@ -221,6 +230,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     if args.command == "extract-confaz-amendment-references":
         result = extract_confaz_amendment_references(args.artifact, args.observation, args.catalog_root, args.output)
+        print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "extract-confaz-act":
+        result = extract_confaz_act_artifact(args.artifact, args.observation, args.output)
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
         return 0
 

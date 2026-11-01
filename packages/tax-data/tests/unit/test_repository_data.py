@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from contai_tax_data.cest_candidates import CEST_CANDIDATE_CONTRACT, cest_candidates_jsonl, parse_cest_candidates
+from contai_tax_data.confaz_act import extract_confaz_act_artifact
 from contai_tax_data.confaz_discovery import (
     candidates_jsonl,
     capture_confaz_act,
@@ -202,7 +203,7 @@ def test_versioned_confaz_cest_amendment_references_reprocess_without_network(tm
     assert not rerun["snapshot_created"] and not rerun["manifest_created"]
 
 
-def test_all_official_cest_amendment_urls_have_verified_archived_raw_pages() -> None:
+def test_all_official_cest_amendment_urls_have_verified_archived_raw_pages(tmp_path: Path) -> None:
     root = DATA_ROOT / "confaz"
     reference_path = (
         root
@@ -216,10 +217,22 @@ def test_all_official_cest_amendment_urls_have_verified_archived_raw_pages() -> 
 
     assert len(official_references) == 24
     assert len({row["catalog_url"] for row in official_references}) == 24
+    first_extraction: dict[str, object] | None = None
+    first_artifact: Path | None = None
+    first_observation: Path | None = None
     for row in official_references:
         act_root = root / "acts" / hashlib.sha256(row["catalog_url"].encode("utf-8")).hexdigest()
-        observation = json.loads((act_root / "state" / "latest-capture.json").read_text(encoding="utf-8"))
-        raw = (root / observation["raw_path"]).read_bytes()
+        pointer = json.loads((act_root / "state" / "latest-capture.json").read_text(encoding="utf-8"))
+        raw_path = root / pointer["raw_path"]
+        observation_path = (
+            act_root
+            / "artifacts"
+            / "observations"
+            / pointer["artifact_sha256"]
+            / f"{pointer['captured_at'].replace(':', '-')}.json"
+        )
+        observation = json.loads(observation_path.read_text(encoding="utf-8"))
+        raw = raw_path.read_bytes()
 
         assert observation["requested_url"] == row["catalog_url"]
         assert observation["final_url"] == row["catalog_url"]
@@ -229,3 +242,28 @@ def test_all_official_cest_amendment_urls_have_verified_archived_raw_pages() -> 
         assert observation["discovery_sha256"] == "106e8b06f556eebf7e98b4ee94814fe93199299d4eb5e35eebaa2b4b9215c7e0"
         assert hashlib.sha256(raw).hexdigest() == observation["artifact_sha256"]
         assert len(raw) == observation["byte_size"]
+        try:
+            extraction = extract_confaz_act_artifact(raw_path, observation_path, tmp_path / "extracted")
+        except ValueError as error:
+            raise AssertionError(f"falha de extração para {row['catalog_url']}: {error}") from error
+        assert extraction["block_count"] >= 5
+        assert extraction["interpretation_status"] == "not_performed"
+        archived = json.loads((act_root / "state" / "latest-extraction.json").read_text(encoding="utf-8"))
+        archived_snapshot = (root / archived["snapshot_path"]).read_bytes()
+        reproduced_snapshot = (tmp_path / "extracted" / extraction["snapshot_path"]).read_bytes()
+        assert archived["contract_version"] == "confaz-act-block-v2"
+        assert archived["snapshot_sha256"] == extraction["snapshot_sha256"]
+        assert hashlib.sha256(archived_snapshot).hexdigest() == extraction["snapshot_sha256"]
+        assert archived_snapshot == reproduced_snapshot
+        if row["anchor_text"] == "53/23":
+            assert b"No Conv\xc3\xaanio ICMS" in reproduced_snapshot
+            assert b"leia-se" in reproduced_snapshot
+        if first_extraction is None:
+            first_extraction = extraction
+            first_artifact = raw_path
+            first_observation = observation_path
+
+    assert first_extraction is not None and first_artifact is not None and first_observation is not None
+    rerun = extract_confaz_act_artifact(first_artifact, first_observation, tmp_path / "extracted")
+    assert rerun["snapshot_sha256"] == first_extraction["snapshot_sha256"]
+    assert not rerun["snapshot_created"] and not rerun["manifest_created"]

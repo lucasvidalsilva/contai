@@ -1,0 +1,20 @@
+{
+  "act_title": "CONVÊNIO ICMS 150/20, DE 9 DE DEZEMBRO DE 2020",
+  "artifact_sha256": "a66190e699be656deb38a080a79a4ef3601c28c6b65c0f1e9ca7fcb90060fd44",
+  "block_count": 312,
+  "contract_version": "confaz-act-block-v2",
+  "description_text": "Altera o Convênio ICMS 142/18, que dispõe sobre os regimes de substituição tributária e de antecipação de recolhimento do Imposto sobre Operações relativas à Circulação de Mercadorias e sobre Prestações de Serviço de Transporte Interestadual e de Comunicação (ICMS) com encerramento de tributação, relativos ao imposto devido pelas operações subsequentes",
+  "discovery_sha256": "106e8b06f556eebf7e98b4ee94814fe93199299d4eb5e35eebaa2b4b9215c7e0",
+  "interpretation_status": "not_performed",
+  "lastmod_semantics": "source_metadata_only_not_legal_effective_date",
+  "manifest_created": true,
+  "publication_text": "Publicado no DOU de 11.12.20, pelo despacho 96/20.",
+  "sitemap_sha256": "78b3451ba25e4ab2d818c673e22764fda27712362d7d15820741108b76ce404d",
+  "snapshot_created": true,
+  "snapshot_path": "acts/24f821e03cb5aae4dd7e661217b35438ab9408a2207fa9f0da2b9e201be713a5/extractions/a66190e699be656deb38a080a79a4ef3601c28c6b65c0f1e9ca7fcb90060fd44/confaz-act-block-v2/confaz-act-blocks.jsonl",
+  "snapshot_sha256": "448cf173e41cccfda4a58b4f4499048d586ad7ffcc4e09f91a09d58608ac1995",
+  "source_authority": "CONFAZ",
+  "source_lastmod": "2024-09-19T11:38:23-03:00",
+  "source_url": "https://www.confaz.fazenda.gov.br/legislacao/convenios/2020/CV150_20",
+  "summary_text": "Altera o Convênio ICMS 142/18, que dispõe sobre os regimes de substituição tributária e de antecipação de recolhimento do Imposto sobre Operações relativas à Circulação de Mercadorias e sobre Prestações de Serviço de Transporte Interestadual e de Comunicação (ICMS) com encerramento de tributação, relativos ao imposto devido pelas operações subsequentes."
+}

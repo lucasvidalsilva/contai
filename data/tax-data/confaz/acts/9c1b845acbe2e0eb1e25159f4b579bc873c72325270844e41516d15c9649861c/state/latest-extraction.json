@@ -1,0 +1,20 @@
+{
+  "act_title": "CONVÊNIO ICMS Nº 123, DE 25 DE OUTUBRO DE 2024",
+  "artifact_sha256": "2a19d571231c8391a1a69572e909df01324131e0ea4d24b0c18c217bb6fc9207",
+  "block_count": 8,
+  "contract_version": "confaz-act-block-v2",
+  "description_text": "Altera o Convênio ICMS nº 142, de 14 de dezembro de 2018, que dispõe sobre os regimes de substituição tributária e de antecipação de recolhimento do Imposto sobre Operações relativas à Circulação de Mercadorias e sobre Prestações de Serviço de Transporte Interestadual e de Comunicação (ICMS) com encerramento de tributação, relativos ao imposto devido pelas operações subsequentes.",
+  "discovery_sha256": "106e8b06f556eebf7e98b4ee94814fe93199299d4eb5e35eebaa2b4b9215c7e0",
+  "interpretation_status": "not_performed",
+  "lastmod_semantics": "source_metadata_only_not_legal_effective_date",
+  "manifest_created": true,
+  "publication_text": "Publicado no DOU de 31.10.24, pelo despacho 46/24.",
+  "sitemap_sha256": "78b3451ba25e4ab2d818c673e22764fda27712362d7d15820741108b76ce404d",
+  "snapshot_created": true,
+  "snapshot_path": "acts/9c1b845acbe2e0eb1e25159f4b579bc873c72325270844e41516d15c9649861c/extractions/2a19d571231c8391a1a69572e909df01324131e0ea4d24b0c18c217bb6fc9207/confaz-act-block-v2/confaz-act-blocks.jsonl",
+  "snapshot_sha256": "81f74e1c8ade3286937ef05499b5bcd28d5e340209068e0aa9f89dd932197933",
+  "source_authority": "CONFAZ",
+  "source_lastmod": "2024-11-06T11:59:58-03:00",
+  "source_url": "https://www.confaz.fazenda.gov.br/legislacao/convenios/2024/CV123_24",
+  "summary_text": "Altera o Convênio ICMS nº 142, de 14 de dezembro de 2018, que dispõe sobre os regimes de substituição tributária e de antecipação de recolhimento do Imposto sobre Operações relativas à Circulação de Mercadorias e sobre Prestações de Serviço de Transporte Interestadual e de Comunicação (ICMS) com encerramento de tributação, relativos ao imposto devido pelas operações subsequentes."
+}

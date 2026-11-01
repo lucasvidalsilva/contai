@@ -1,0 +1,20 @@
+{
+  "act_title": "CONVÊNIO ICMS 130/19, DE 5 DE JULHO DE 2019",
+  "artifact_sha256": "a75b1471286afb1731d715857ae397c4e2440b0bf3991832c7c5c980240a19e8",
+  "block_count": 67,
+  "contract_version": "confaz-act-block-v2",
+  "description_text": "Altera o Convênio ICMS 142/18, que dispõe sobre os regimes de substituição tributária e de antecipação de recolhimento do Imposto sobre Operações relativas à Circulação de Mercadorias e sobre Prestações de Serviço de Transporte Interestadual e de Comunicação (ICMS) com encerramento de tributação, relativos ao imposto devido pelas operações subsequentes.",
+  "discovery_sha256": "106e8b06f556eebf7e98b4ee94814fe93199299d4eb5e35eebaa2b4b9215c7e0",
+  "interpretation_status": "not_performed",
+  "lastmod_semantics": "source_metadata_only_not_legal_effective_date",
+  "manifest_created": true,
+  "publication_text": "Publicado no DOU de 11.07.19, pelo Despacho 47/19.",
+  "sitemap_sha256": "78b3451ba25e4ab2d818c673e22764fda27712362d7d15820741108b76ce404d",
+  "snapshot_created": true,
+  "snapshot_path": "acts/1af77c25af65d93f3056d9b481bbd04f1e741f602b390e45e680398952449a37/extractions/a75b1471286afb1731d715857ae397c4e2440b0bf3991832c7c5c980240a19e8/confaz-act-block-v2/confaz-act-blocks.jsonl",
+  "snapshot_sha256": "d8ef2ed7e3fa473d88d9187e5eefebc3b7f12b96868abe45d607306efd75966b",
+  "source_authority": "CONFAZ",
+  "source_lastmod": "2019-09-10T12:41:01-03:00",
+  "source_url": "https://www.confaz.fazenda.gov.br/legislacao/convenios/2019/CV130_19",
+  "summary_text": "Altera o Convênio ICMS 142/18, que dispõe sobre os regimes de substituição tributária e de antecipação de recolhimento do Imposto sobre Operações relativas à Circulação de Mercadorias e sobre Prestações de Serviço de Transporte Interestadual e de Comunicação (ICMS) com encerramento de tributação, relativos ao imposto devido pelas operações subsequentes."
+}

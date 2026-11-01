@@ -1,0 +1,20 @@
+{
+  "act_title": "CONVÊNIO ICMS Nº 107, DE 4 DE SETEMBRO DE 2026",
+  "artifact_sha256": "e471d2fdeed0d8841fc1a7f22e3c1e2e60c8bffa82f833f50daf82dea1363c94",
+  "block_count": 43,
+  "contract_version": "confaz-act-block-v2",
+  "description_text": "Altera o Convênio ICMS nº 142, de 14 de dezembro de 2018, que dispõe sobre os regimes de substituição tributária e de antecipação de recolhimento do Imposto sobre Operações relativas à Circulação de Mercadorias e sobre Prestações de Serviço de Transporte Interestadual e de Comunicação (ICMS) com encerramento de tributação, relativos ao imposto devido pelas operações subsequentes.",
+  "discovery_sha256": "106e8b06f556eebf7e98b4ee94814fe93199299d4eb5e35eebaa2b4b9215c7e0",
+  "interpretation_status": "not_performed",
+  "lastmod_semantics": "source_metadata_only_not_legal_effective_date",
+  "manifest_created": true,
+  "publication_text": "Publicado no DOU de 09.09.26, pelo Despacho 40/26.",
+  "sitemap_sha256": "78b3451ba25e4ab2d818c673e22764fda27712362d7d15820741108b76ce404d",
+  "snapshot_created": true,
+  "snapshot_path": "acts/0bf16f6aca2618a9107e1744d961979913d160936eb085d282c26b46f2115039/extractions/e471d2fdeed0d8841fc1a7f22e3c1e2e60c8bffa82f833f50daf82dea1363c94/confaz-act-block-v2/confaz-act-blocks.jsonl",
+  "snapshot_sha256": "a8f101d787c29be774988c324d54df6f0ca5de31b03ccb1f1f159785d02106e7",
+  "source_authority": "CONFAZ",
+  "source_lastmod": "2026-09-30T12:11:51-03:00",
+  "source_url": "https://www.confaz.fazenda.gov.br/legislacao/convenios/2026/CV107_26",
+  "summary_text": "Altera o Convênio ICMS nº 142, de 14 de dezembro de 2018, que dispõe sobre os regimes de substituição tributária e de antecipação de recolhimento do Imposto sobre Operações relativas à Circulação de Mercadorias e sobre Prestações de Serviço de Transporte Interestadual e de Comunicação (ICMS) com encerramento de tributação, relativos ao imposto devido pelas operações subsequentes."
+}

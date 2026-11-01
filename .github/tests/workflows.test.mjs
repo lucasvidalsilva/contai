@@ -101,6 +101,10 @@ test("descoberta CONFAZ é manual, captura o sitemap e não publica atos", async
   const actCapture = workflow.jobs["discover-confaz"].steps.find((step) => step.run?.includes("capture-confaz-act"));
   assert.ok(actCapture);
   assert.equal(actCapture.env.SOURCE_URL, "${{ inputs.source_url }}");
+  const extraction = workflow.jobs["discover-confaz"].steps.find((step) => step.run?.includes("extract-confaz-act"));
+  assert.ok(extraction);
+  assert.equal(extraction.if, "steps.capture-act.outcome == 'success'");
+  assert.ok(extraction.run.includes("artifacts/observations"));
   const upload = workflow.jobs["discover-confaz"].steps.find((step) => step.uses?.startsWith("actions/upload-artifact@"));
   assert.ok(upload);
   assert.equal(upload.if, "always() && steps.capture.outcome == 'success'");
