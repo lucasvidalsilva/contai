@@ -3,12 +3,19 @@ from __future__ import annotations
 import gzip
 import hashlib
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 from contai_tax_data.cest_candidates import CEST_CANDIDATE_CONTRACT, cest_candidates_jsonl, parse_cest_candidates
-from contai_tax_data.confaz_discovery import candidates_jsonl, parse_confaz_sitemap, write_confaz_discovery
+from contai_tax_data.confaz_discovery import (
+    candidates_jsonl,
+    capture_confaz_act,
+    parse_confaz_sitemap,
+    write_confaz_discovery,
+)
 from contai_tax_data.federal_law import blocks_jsonl, parse_lc214_blocks, validate_lc214_block_volume
 from contai_tax_data.postgres import load_local_ibs_cbs_release, load_local_ncm_release, load_local_tipi_release
+from contai_tax_data.source import RetrievedArtifact
 
 REPOSITORY_ROOT = Path(__file__).parents[4]
 DATA_ROOT = REPOSITORY_ROOT / "data" / "tax-data"
@@ -135,3 +142,36 @@ def test_versioned_confaz_discovery_reprocesses_its_archived_sitemap() -> None:
     assert candidates_jsonl(candidates) == snapshot
     rerun = write_confaz_discovery(raw_path, observation, root)
     assert rerun["snapshot_sha256"] == current["snapshot_sha256"]
+
+
+def test_versioned_confaz_amendment_reprocesses_from_catalog_without_network(tmp_path: Path) -> None:
+    catalog_root = DATA_ROOT / "confaz"
+    source_url = "https://www.confaz.fazenda.gov.br/legislacao/convenios/2026/CV107_26"
+    url_key = hashlib.sha256(source_url.encode("utf-8")).hexdigest()
+    act_root = catalog_root / "acts" / url_key
+    observation = json.loads((act_root / "state" / "latest-capture.json").read_text(encoding="utf-8"))
+    raw = (catalog_root / observation["raw_path"]).read_bytes()
+
+    class Client:
+        def fetch(self, url: str) -> RetrievedArtifact:
+            assert url == source_url
+            return RetrievedArtifact(
+                requested_url=url,
+                final_url=url,
+                status=200,
+                headers={"content-type": "text/html; charset=utf-8"},
+                body=raw,
+                captured_at=datetime(2026, 11, 1, tzinfo=UTC),
+            )
+
+    result = capture_confaz_act(source_url, catalog_root, tmp_path / "reprocessed", client=Client())
+    rerun = capture_confaz_act(source_url, catalog_root, tmp_path / "reprocessed", client=Client())
+
+    assert hashlib.sha256(raw).hexdigest() == observation["artifact_sha256"] == result.artifact_sha256
+    assert observation["contract_version"] == "confaz-html-act-raw-v1"
+    assert observation["sitemap_sha256"] == "78b3451ba25e4ab2d818c673e22764fda27712362d7d15820741108b76ce404d"
+    assert observation["source_lastmod"] == "2026-09-30T12:11:51-03:00"
+    assert observation["status"] == "captured_raw_uninterpreted"
+    assert result.artifact_created
+    assert not rerun.artifact_created and not rerun.observation_created
+    assert raw == (tmp_path / "reprocessed" / result.raw_path).read_bytes()

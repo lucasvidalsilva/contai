@@ -3,6 +3,11 @@ name: Capture CONFAZ sitemap
 on:
   workflow_dispatch:
     inputs:
+      source_url:
+        description: Official CONFAZ URL from the sitemap catalog
+        required: true
+        default: https://www.confaz.fazenda.gov.br/legislacao/convenios/2026/CV107_26
+        type: string
       timeout:
         description: Request timeout in seconds
         required: false
@@ -73,6 +78,31 @@ jobs:
             echo
             echo '```json'
             cat discovery-result.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Capture one catalogued act page
+        id: capture-act
+        shell: bash
+        env:
+          SOURCE_URL: ${{ inputs.source_url }}
+          CAPTURE_TIMEOUT: ${{ inputs.timeout || '45' }}
+        run: |
+          set -euo pipefail
+          uv run --project packages/tax-data contai-tax-data capture-confaz-act \
+            "$SOURCE_URL" \
+            --catalog-root var/tax-data/confaz \
+            --output var/tax-data/confaz \
+            --timeout "$CAPTURE_TIMEOUT" \
+            | tee act-result.json
+          {
+            echo
+            echo '### Página oficial selecionada'
+            echo
+            echo 'A URL foi conferida contra o catálogo reprocessado nesta execução. O HTML foi arquivado sem interpretação jurídica.'
+            echo
+            echo '```json'
+            cat act-result.json
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 

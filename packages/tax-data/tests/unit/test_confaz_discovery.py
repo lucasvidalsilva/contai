@@ -10,7 +10,10 @@ import pytest
 
 from contai_tax_data.confaz_discovery import (
     CONFAZ_SITEMAP_URL,
+    ConfazActCandidate,
     ConfazDiscoveryError,
+    capture_confaz_act,
+    capture_confaz_act_artifact,
     capture_confaz_sitemap_artifact,
     parse_confaz_sitemap,
     write_confaz_discovery,
@@ -92,6 +95,7 @@ def test_capture_rejects_unexpected_official_source_response(
         (b"<not-xml>", "malformado"),
         (b"<!DOCTYPE urlset [<!ENTITY x 'y'>]><urlset />", "DTD"),
         (_sitemap(bad_url="https://elsewhere.example/legislacao/convenios/2026/1"), "dominio oficial"),
+        (_sitemap(bad_url="https://www.confaz.fazenda.gov.br:444/legislacao/convenios/2026/1"), "dominio oficial"),
         (_sitemap(duplicate=True), "duplicada"),
         (_sitemap(bad_lastmod=True), "ISO 8601"),
     ],
@@ -131,6 +135,93 @@ def test_capture_and_discovery_are_reprocessable_and_idempotent(tmp_path: Path) 
     snapshot = (tmp_path / "discovery" / first_discovery["candidates_path"]).read_bytes()
     assert hashlib.sha256(snapshot).hexdigest() == first_discovery["snapshot_sha256"]
     assert b"must-not-be-recorded" not in (capture_root / "state/confaz-sitemap-latest-capture.json").read_bytes()
+
+
+def test_act_capture_requires_catalog_membership_and_preserves_provenance(tmp_path: Path) -> None:
+    raw = gzip.compress(_sitemap(), mtime=0)
+    catalog_root = tmp_path / "catalog"
+    captured = capture_confaz_sitemap_artifact(_artifact(raw), catalog_root)
+    observation = (
+        catalog_root
+        / "artifacts"
+        / "observations"
+        / captured.artifact_sha256
+        / f"{captured.captured_at.replace(':', '-')}.json"
+    )
+    write_confaz_discovery(catalog_root / captured.raw_path, observation, catalog_root)
+    selected_url = "https://www.confaz.fazenda.gov.br/legislacao/convenios/2026/ato-0"
+    page = b"<!doctype html><html><body>CONVENIO TESTE</body></html>"
+
+    class Client:
+        def __init__(self) -> None:
+            self.requested: list[str] = []
+
+        def fetch(self, url: str) -> RetrievedArtifact:
+            self.requested.append(url)
+            return _artifact(page, url=url, content_type="text/html; charset=utf-8")
+
+    client = Client()
+    first = capture_confaz_act(selected_url, catalog_root, tmp_path / "acts", client=client)
+    second = capture_confaz_act(selected_url, catalog_root, tmp_path / "acts", client=client)
+    raw_path = tmp_path / "acts" / first.raw_path
+    url_key = hashlib.sha256(selected_url.encode("utf-8")).hexdigest()
+    observation_dir = tmp_path / "acts" / "acts" / url_key / "artifacts" / "observations" / first.artifact_sha256
+    observation_path = next(observation_dir.glob("*.json"))
+    captured_manifest = json.loads(observation_path.read_text(encoding="utf-8"))
+
+    assert first.artifact_sha256 == second.artifact_sha256 == hashlib.sha256(page).hexdigest()
+    assert first.artifact_created and first.observation_created
+    assert not second.artifact_created and not second.observation_created
+    assert client.requested == [selected_url, selected_url]
+    assert raw_path.read_bytes() == page
+    assert captured_manifest["requested_url"] == selected_url
+    assert captured_manifest["contract_version"] == "confaz-html-act-raw-v1"
+    assert captured_manifest["status"] == "captured_raw_uninterpreted"
+    assert captured_manifest["source_lastmod"] == "2026-11-01T12:00:00-03:00"
+
+    with pytest.raises(ConfazDiscoveryError, match="nÃ£o consta no catÃ¡logo"):
+        capture_confaz_act(
+            "https://www.confaz.fazenda.gov.br/legislacao/convenios/2026/nao-listado",
+            catalog_root,
+            tmp_path / "acts",
+            client=client,
+        )
+    assert len(client.requested) == 2
+
+
+@pytest.mark.parametrize(
+    ("artifact", "message"),
+    [
+        (_artifact(b"<html>x</html>", final_url="https://www.confaz.fazenda.gov.br/outro"), "URL solicitada/final"),
+        (_artifact(b"<html>x</html>", status=404), "status HTTP"),
+        (_artifact(b"<html>x</html>", content_type="application/pdf"), "text/html UTF-8"),
+        (_artifact(b"<html>\xff</html>"), "UTF-8"),
+    ],
+)
+def test_act_capture_rejects_unexpected_page_response(
+    tmp_path: Path, artifact: RetrievedArtifact, message: str
+) -> None:
+    candidate = ConfazActCandidate(
+        source_url=CONFAZ_SITEMAP_URL.replace("sitemap.xml.gz", "legislacao/convenios/2026/teste"),
+        source_section="convenios",
+        source_lastmod=None,
+    )
+    mismatched = RetrievedArtifact(
+        requested_url=candidate.source_url,
+        final_url=artifact.final_url if artifact.final_url != CONFAZ_SITEMAP_URL else candidate.source_url,
+        status=artifact.status,
+        headers=artifact.headers,
+        body=artifact.body,
+        captured_at=artifact.captured_at,
+    )
+    with pytest.raises(ConfazDiscoveryError, match=message):
+        capture_confaz_act_artifact(
+            mismatched,
+            candidate,
+            tmp_path,
+            sitemap_sha256="0" * 64,
+            discovery_sha256="1" * 64,
+        )
 
 
 def test_discovery_rejects_manifest_for_different_source(tmp_path: Path) -> None:

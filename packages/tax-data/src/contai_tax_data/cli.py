@@ -14,7 +14,7 @@ import psycopg
 from contai_tax_data.cest_candidates import diff_cest_candidate_snapshots, extract_cest_candidate_artifact
 from contai_tax_data.cest_capture import capture_cest
 from contai_tax_data.cest_postgres import stage_cest_candidates
-from contai_tax_data.confaz_discovery import capture_confaz_sitemap, write_confaz_discovery
+from contai_tax_data.confaz_discovery import capture_confaz_act, capture_confaz_sitemap, write_confaz_discovery
 from contai_tax_data.federal_law import write_lc214_blocks
 from contai_tax_data.ibs_cbs import IBS_CBS_ACCEPT
 from contai_tax_data.ibs_cbs_storage import capture_ibs_cbs
@@ -89,6 +89,14 @@ def build_parser() -> argparse.ArgumentParser:
     confaz_discovery.add_argument("artifact", type=Path, help="sitemap GZip jÃ¡ capturado")
     confaz_discovery.add_argument("observation", type=Path, help="observaÃ§Ã£o da captura correspondente")
     confaz_discovery.add_argument("--output", type=Path, default=Path("var/tax-data/confaz"))
+
+    confaz_act = commands.add_parser(
+        "capture-confaz-act", help="captura um ato HTML listado no catÃ¡logo CONFAZ versionado"
+    )
+    confaz_act.add_argument("url", help="URL oficial que precisa constar no snapshot revalidado do sitemap")
+    confaz_act.add_argument("--catalog-root", type=Path, default=Path("data/tax-data/confaz"))
+    confaz_act.add_argument("--output", type=Path, default=Path("var/tax-data/confaz"))
+    confaz_act.add_argument("--timeout", type=float, default=45.0, dest="timeout_seconds")
 
     cest_candidates = commands.add_parser(
         "extract-cest-candidates", help="extrai linhas candidatas do HTML CEST, sem decidir vigência"
@@ -191,6 +199,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "discover-confaz-acts":
         discovery_result = write_confaz_discovery(args.artifact, args.observation, args.output)
         print(json.dumps(discovery_result, ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "capture-confaz-act":
+        client = SourceClient(accept="text/html", attempts=1, timeout_seconds=args.timeout_seconds)
+        act_result = capture_confaz_act(args.url, args.catalog_root, args.output, client=client)
+        print(json.dumps(asdict(act_result), ensure_ascii=False, sort_keys=True))
         return 0
 
     if args.command == "extract-cest-candidates":
