@@ -47,6 +47,21 @@ def test_candidate_parser_does_not_treat_nested_table_cells_as_columns() -> None
     assert candidates[0].description == "texto antestexto depois"
 
 
+def test_candidate_parser_rejects_conflicting_segment_reference_names() -> None:
+    body = """<table>
+      <tr><td>ITEM</td><td>NOME DO SEGMENTO</td><td>CODIGO DO SEGMENTO</td></tr>
+      <tr><td>1</td><td>Autopeças</td><td>01</td></tr>
+      <tr><td>2</td><td>Nome conflitante</td><td>01</td></tr>
+    </table>
+    <table>
+      <tr><td>ITEM</td><td>CEST</td><td>NCM/SH</td><td>DESCRIÇÃO</td></tr>
+      <tr><td>1</td><td>01.001.00</td><td>3815</td><td>Item</td></tr>
+    </table>""".encode()
+
+    with pytest.raises(CestCandidateContractError, match="nomes conflitantes"):
+        parse_cest_candidates(body)
+
+
 @pytest.mark.parametrize(
     ("body", "message"),
     [

@@ -166,6 +166,9 @@ class _TableParser(HTMLParser):
         if table_kind == "segment" and len(self.cells) == 3:
             _, segment_name, segment_code = self.cells
             if re.fullmatch(r"\d{2}", segment_code) and segment_name:
+                previous_name = self.segment_names.get(segment_code)
+                if previous_name is not None and previous_name != segment_name:
+                    raise CestCandidateContractError(f"codigo de segmento {segment_code} possui nomes conflitantes")
                 self.segment_names[segment_code] = segment_name
             return
         if table_kind != "cest" or row_table_index not in self.headers or len(self.cells) != 4:
