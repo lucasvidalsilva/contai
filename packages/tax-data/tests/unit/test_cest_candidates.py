@@ -21,6 +21,7 @@ def test_candidate_parser_preserves_source_values_and_unresolved_status() -> Non
     assert candidates[0].legal_status == "unresolved"
     assert candidates[1].cest_code == "01.002.00"
     assert candidates[1].description == "Redação histórica preservada"
+    assert "s" in candidates[1].source_cell_tags[1]
     assert candidates[1].legal_status == "unresolved"
 
 

@@ -14,7 +14,7 @@ from pathlib import Path
 
 from contai_tax_data.cest_capture import CEST_SOURCE_URL
 
-CEST_CANDIDATE_CONTRACT = "cest-candidate-v1"
+CEST_CANDIDATE_CONTRACT = "cest-candidate-v2"
 _CEST_CODE = re.compile(r"^\d{2}\.\d{3}\.\d{2}$")
 _EXPECTED_HEADER = ("ITEM", "CEST", "NCM/SH", "DESCRICAO")
 
@@ -31,6 +31,8 @@ class CestCandidate:
     cest_code: str
     ncm_sh_raw: str
     description: str
+    source_cell_classes: tuple[str, ...]
+    source_cell_tags: tuple[tuple[str, ...], ...]
     legal_status: str = "unresolved"
 
 
@@ -55,12 +57,16 @@ class _TableParser(HTMLParser):
         self.in_cell = False
         self.cell_table_index: int | None = None
         self.cell_parts: list[str] = []
+        self.cell_classes: list[str] = []
+        self.cell_tags: list[str] = []
         self.cells: list[str] = []
+        self.cells_classes: list[str] = []
+        self.cells_tags: list[tuple[str, ...]] = []
         self.headers: set[int] = set()
         self.candidates: list[CestCandidate] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        del attrs
+        class_value = next((value for name, value in attrs if name == "class" and value), "")
         if tag == "table":
             self.table_counter += 1
             self.table_stack.append(self.table_counter)
@@ -71,10 +77,20 @@ class _TableParser(HTMLParser):
             self.row_table_index = self.table_stack[-1]
             self.row_index += 1
             self.cells = []
+            self.cells_classes = []
+            self.cells_tags = []
         elif tag in {"td", "th"} and self.in_row and self.table_stack[-1] == self.row_table_index:
             self.in_cell = True
             self.cell_table_index = self.row_table_index
             self.cell_parts = []
+            self.cell_classes = []
+            self.cell_tags = [tag]
+            if class_value:
+                self.cell_classes.append(_clean_text(class_value))
+        elif self.in_cell and self.table_stack and self.table_stack[-1] == self.cell_table_index:
+            self.cell_tags.append(tag)
+            if class_value:
+                self.cell_classes.append(_clean_text(class_value))
 
     def handle_data(self, data: str) -> None:
         if self.in_cell and self.table_stack and self.table_stack[-1] == self.cell_table_index:
@@ -83,6 +99,8 @@ class _TableParser(HTMLParser):
     def handle_endtag(self, tag: str) -> None:
         if tag in {"td", "th"} and self.in_cell and self.table_stack and self.table_stack[-1] == self.cell_table_index:
             self.cells.append(_clean_text("".join(self.cell_parts)))
+            self.cells_classes.append(" ".join(self.cell_classes))
+            self.cells_tags.append(tuple(self.cell_tags))
             self.in_cell = False
             self.cell_table_index = None
         elif tag == "tr" and self.in_row and self.table_stack and self.table_stack[-1] == self.row_table_index:
@@ -112,6 +130,8 @@ class _TableParser(HTMLParser):
                 cest_code=cest_code,
                 ncm_sh_raw=ncm_sh_raw,
                 description=description,
+                source_cell_classes=tuple(self.cells_classes),
+                source_cell_tags=tuple(self.cells_tags),
             )
         )
 
@@ -199,7 +219,7 @@ def extract_cest_candidate_artifact(artifact_path: Path, output_dir: Path) -> Ce
     snapshot = cest_candidates_jsonl(candidates, artifact_sha)
     candidate_set_sha = cest_candidate_ids(snapshot)
     root = output_dir.resolve()
-    relative_path = Path("candidates") / artifact_sha / "cest-candidates.jsonl"
+    relative_path = Path("candidates") / artifact_sha / CEST_CANDIDATE_CONTRACT / "cest-candidates.jsonl"
     candidates_created = _write_once(root / relative_path, snapshot)
     manifest = {
         "artifact_sha256": artifact_sha,
@@ -211,7 +231,9 @@ def extract_cest_candidate_artifact(artifact_path: Path, output_dir: Path) -> Ce
         "status": "candidates_unresolved",
     }
     manifest_bytes = (json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
-    manifest_created = _write_once(root / "candidates" / artifact_sha / "manifest.json", manifest_bytes)
+    manifest_created = _write_once(
+        root / "candidates" / artifact_sha / CEST_CANDIDATE_CONTRACT / "manifest.json", manifest_bytes
+    )
     _write_pointer(root / "state" / "cest-latest-candidates.json", manifest_bytes)
     return CestCandidateExtractionResult(
         artifact_sha256=artifact_sha,
