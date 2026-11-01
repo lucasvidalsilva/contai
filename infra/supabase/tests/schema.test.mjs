@@ -34,6 +34,28 @@ test("migração cria fronteira privada e leitura pública governada", async () 
   );
   assert.deepEqual(schemas.rows, [{ schema_name: "tax_ingest" }, { schema_name: "tax_public" }]);
 
+  const cestPrivileges = await db.query(`
+    select
+      has_table_privilege('tax_ingest_writer', 'tax_ingest.cest_candidate_set', 'select') as writer_can_read_set,
+      has_table_privilege('tax_ingest_writer', 'tax_ingest.cest_candidate', 'insert') as writer_can_insert_candidate,
+      has_table_privilege('anon', 'tax_ingest.cest_candidate_set', 'select') as anon_can_read_set,
+      has_table_privilege('authenticated', 'tax_ingest.cest_candidate', 'select') as authenticated_can_read_candidate
+  `);
+  assert.deepEqual(cestPrivileges.rows, [
+    {
+      writer_can_read_set: true,
+      writer_can_insert_candidate: true,
+      anon_can_read_set: false,
+      authenticated_can_read_candidate: false,
+    },
+  ]);
+
+  const cestPublicTables = await db.query(`
+    select table_name from information_schema.tables
+    where table_schema = 'tax_public' and table_name like 'cest%'
+  `);
+  assert.deepEqual(cestPublicTables.rows, []);
+
   const rls = await db.query(`
     select c.relname
     from pg_class as c
