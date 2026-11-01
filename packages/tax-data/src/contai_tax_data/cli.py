@@ -13,6 +13,7 @@ import psycopg
 
 from contai_tax_data.cest_candidates import diff_cest_candidate_snapshots, extract_cest_candidate_artifact
 from contai_tax_data.cest_capture import capture_cest
+from contai_tax_data.cest_postgres import stage_cest_candidates
 from contai_tax_data.ibs_cbs import IBS_CBS_ACCEPT
 from contai_tax_data.ibs_cbs_storage import capture_ibs_cbs
 from contai_tax_data.normative_capture import capture_lc214
@@ -70,6 +71,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     diff_cest.add_argument("previous", type=Path)
     diff_cest.add_argument("current", type=Path)
+
+    stage_cest = commands.add_parser(
+        "stage-cest-candidates", help="revalida e persiste candidatos CEST unresolved no schema privado"
+    )
+    stage_cest.add_argument("candidates", type=Path, help="snapshot JSONL gerado pela extraÃ§Ã£o CEST")
+    stage_cest.add_argument("observation", type=Path, help="manifesto da captura bruta correspondente")
+    stage_cest.add_argument("--capture-root", type=Path, default=Path("var/tax-data/cest"))
 
     stage_ibs_cbs = commands.add_parser(
         "stage-ibs-cbs", help="revalida e persiste uma release IBS/CBS no schema privado"
@@ -137,6 +145,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "diff-cest-candidates":
         diff_result = diff_cest_candidate_snapshots(args.previous.read_bytes(), args.current.read_bytes())
         print(json.dumps(asdict(diff_result), ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "stage-cest-candidates":
+        with psycopg.connect(_database_url(), sslmode="require") as connection:
+            cest_candidate_result = stage_cest_candidates(
+                connection, args.candidates, args.observation, args.capture_root
+            )
+        print(json.dumps(asdict(cest_candidate_result), ensure_ascii=False, sort_keys=True))
         return 0
     if args.command == "stage-ibs-cbs":
         with psycopg.connect(_database_url(), sslmode="require") as connection:
