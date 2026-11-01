@@ -200,3 +200,32 @@ def test_versioned_confaz_cest_amendment_references_reprocess_without_network(tm
     assert result["snapshot_sha256"] == "e3f89a9a0cad0289340611e568adff5ef22f4917841fbcdc8b6a4148e2b8f23a"
     assert rerun["snapshot_sha256"] == result["snapshot_sha256"]
     assert not rerun["snapshot_created"] and not rerun["manifest_created"]
+
+
+def test_all_official_cest_amendment_urls_have_verified_archived_raw_pages() -> None:
+    root = DATA_ROOT / "confaz"
+    reference_path = (
+        root
+        / "references"
+        / "7c2bdc9db1ceb11faaa56b2582e77e5a1bcb66e51cd62b6de0f155a78359c45a"
+        / "confaz-amendment-reference-v1"
+        / "confaz-amendment-references.jsonl"
+    )
+    references = [json.loads(line) for line in reference_path.read_text(encoding="utf-8").splitlines()]
+    official_references = [row for row in references if row["catalog_status"] == "matched"]
+
+    assert len(official_references) == 24
+    assert len({row["catalog_url"] for row in official_references}) == 24
+    for row in official_references:
+        act_root = root / "acts" / hashlib.sha256(row["catalog_url"].encode("utf-8")).hexdigest()
+        observation = json.loads((act_root / "state" / "latest-capture.json").read_text(encoding="utf-8"))
+        raw = (root / observation["raw_path"]).read_bytes()
+
+        assert observation["requested_url"] == row["catalog_url"]
+        assert observation["final_url"] == row["catalog_url"]
+        assert observation["contract_version"] == "confaz-html-act-raw-v1"
+        assert observation["http_status"] == 200
+        assert observation["sitemap_sha256"] == "78b3451ba25e4ab2d818c673e22764fda27712362d7d15820741108b76ce404d"
+        assert observation["discovery_sha256"] == "106e8b06f556eebf7e98b4ee94814fe93199299d4eb5e35eebaa2b4b9215c7e0"
+        assert hashlib.sha256(raw).hexdigest() == observation["artifact_sha256"]
+        assert len(raw) == observation["byte_size"]

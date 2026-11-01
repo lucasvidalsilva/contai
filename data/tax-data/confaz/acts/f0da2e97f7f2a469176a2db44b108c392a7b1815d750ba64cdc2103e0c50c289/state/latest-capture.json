@@ -1,0 +1,20 @@
+{
+  "artifact_sha256": "57ea375061ceb7417d9b0552d3c5e626968b6a0c0a0331b6037f60ccc55fa3d7",
+  "byte_size": 135269,
+  "captured_at": "2026-11-01T22:54:29.075949Z",
+  "contract_version": "confaz-html-act-raw-v1",
+  "discovery_sha256": "106e8b06f556eebf7e98b4ee94814fe93199299d4eb5e35eebaa2b4b9215c7e0",
+  "final_url": "https://www.confaz.fazenda.gov.br/legislacao/convenios/2020/CV120_20",
+  "http_status": 200,
+  "raw_path": "acts/f0da2e97f7f2a469176a2db44b108c392a7b1815d750ba64cdc2103e0c50c289/artifacts/sha256/57/57ea375061ceb7417d9b0552d3c5e626968b6a0c0a0331b6037f60ccc55fa3d7.html",
+  "requested_url": "https://www.confaz.fazenda.gov.br/legislacao/convenios/2020/CV120_20",
+  "response_headers": {
+    "cache-control": "max-age=0, s-maxage=0, must-revalidate",
+    "content-type": "text/html;charset=utf-8"
+  },
+  "sitemap_sha256": "78b3451ba25e4ab2d818c673e22764fda27712362d7d15820741108b76ce404d",
+  "source_authority": "CONFAZ",
+  "source_lastmod": "2024-09-19T10:30:09-03:00",
+  "source_section": "convenios",
+  "status": "captured_raw_uninterpreted"
+}
