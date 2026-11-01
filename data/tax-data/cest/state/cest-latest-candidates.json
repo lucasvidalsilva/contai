@@ -1,0 +1,11 @@
+{
+  "artifact_sha256": "7c2bdc9db1ceb11faaa56b2582e77e5a1bcb66e51cd62b6de0f155a78359c45a",
+  "candidate_count": 1569,
+  "candidate_set_sha256": "0f39241a25eb02b0ae16b3c9d13879e7731b32f88d297f4d295698ab3cfee9e5",
+  "contract_version": "cest-candidate-v5",
+  "parser_id": "cest-candidate-v5",
+  "segment_matched_count": 1569,
+  "segment_unmatched_count": 0,
+  "source_url": "https://www.confaz.fazenda.gov.br/legislacao/convenios/2018/CV142_18",
+  "status": "candidates_unresolved"
+}

@@ -1,0 +1,16 @@
+{
+  "artifact_sha256": "d155f1baafb4039dcb74f97bb5abc1aec69f6760da9bd3f94a90bd40b33a2e9a",
+  "byte_size": 673645,
+  "captured_at": "2026-11-01T17:51:14.732469Z",
+  "final_url": "https://www.gov.br/receitafederal/pt-br/acesso-a-informacao/legislacao/documentos-e-arquivos/tipi.xlsx/%40%40download/file",
+  "http_status": 200,
+  "raw_path": "artifacts/sha256/d155f1baafb4039dcb74f97bb5abc1aec69f6760da9bd3f94a90bd40b33a2e9a.xlsx",
+  "requested_url": "https://www.gov.br/receitafederal/pt-br/acesso-a-informacao/legislacao/documentos-e-arquivos/tipi.xlsx/%40%40download/file",
+  "response_headers": {
+    "cache-control": "public, max-age=604800",
+    "content-disposition": "attachment; filename*=UTF-8''1%20TIPI%202022%20-%20Atualizada%20ADE%20001-2026.xlsx",
+    "content-length": "673645",
+    "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  },
+  "status": "accepted"
+}
