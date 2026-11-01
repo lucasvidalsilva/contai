@@ -1,0 +1,18 @@
+{
+  "artifact_sha256": "5e1825e961461d18124ab3d7dd7f1b084688a53bd6afdc69311dd65378f6ccc9",
+  "byte_size": 4189641,
+  "captured_at": "2026-11-01T15:48:48.369079Z",
+  "final_url": "https://dfe-portal.svrs.rs.gov.br/CFF/ClassificacaoTributaria",
+  "headers": {
+    "cache-control": "private",
+    "content-length": "4189641",
+    "content-type": "text/html; charset=utf-8"
+  },
+  "http_status": 200,
+  "parser_version": "ibs-cbs-v1",
+  "raw_path": "artifacts/sha256/5e/5e1825e961461d18124ab3d7dd7f1b084688a53bd6afdc69311dd65378f6ccc9.html",
+  "release_id": "e858a554bb21a386c9e65f4330d83ef562b77a3bb8067934158a86451d6d9e59",
+  "requested_url": "https://dfe-portal.svrs.rs.gov.br/CFF/ClassificacaoTributaria",
+  "source_id": "svrs-cff-classificacao-tributaria",
+  "status": "accepted"
+}

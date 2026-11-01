@@ -1,0 +1,16 @@
+{
+  "artifact_sha256": "7c2bdc9db1ceb11faaa56b2582e77e5a1bcb66e51cd62b6de0f155a78359c45a",
+  "byte_size": 933142,
+  "captured_at": "2026-10-31T22:23:18.882147Z",
+  "contract_version": "confaz-cest-raw-v1",
+  "final_url": "https://www.confaz.fazenda.gov.br/legislacao/convenios/2018/CV142_18",
+  "http_status": 200,
+  "raw_path": "artifacts/sha256/7c/7c2bdc9db1ceb11faaa56b2582e77e5a1bcb66e51cd62b6de0f155a78359c45a.html",
+  "requested_url": "https://www.confaz.fazenda.gov.br/legislacao/convenios/2018/CV142_18",
+  "response_headers": {
+    "cache-control": "max-age=0, s-maxage=0, must-revalidate",
+    "content-type": "text/html;charset=utf-8"
+  },
+  "source_authority": "CONFAZ",
+  "status": "captured_raw_uninterpreted"
+}
