@@ -21,6 +21,7 @@ def test_candidate_parser_preserves_source_values_and_unresolved_status() -> Non
     assert len(candidates) == 2
     assert candidates[0].cest_code == "01.001.00"
     assert candidates[0].ncm_sh_raw == "3815.12.10 3815.12.90"
+    assert candidates[0].source_context == ("ANEXO I", "AUTOPEÇAS")
     assert candidates[0].legal_status == "unresolved"
     assert candidates[1].cest_code == "01.002.00"
     assert candidates[1].description == "Redação histórica preservada"

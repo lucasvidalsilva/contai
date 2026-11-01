@@ -15,7 +15,7 @@ from pathlib import Path
 
 from contai_tax_data.cest_capture import CEST_SOURCE_URL
 
-CEST_CANDIDATE_CONTRACT = "cest-candidate-v3"
+CEST_CANDIDATE_CONTRACT = "cest-candidate-v4"
 _CEST_CODE = re.compile(r"^\d{2}\.\d{3}\.\d{2}$")
 _EXPECTED_HEADER = ("ITEM", "CEST", "NCM/SH", "DESCRICAO")
 
@@ -32,6 +32,7 @@ class CestCandidate:
     cest_code: str
     ncm_sh_raw: str
     description: str
+    source_context: tuple[str, ...]
     source_cell_classes: tuple[str, ...]
     source_cell_tags: tuple[tuple[str, ...], ...]
     legal_status: str = "unresolved"
@@ -76,12 +77,17 @@ class _TableParser(HTMLParser):
         self.cells_tags: list[tuple[str, ...]] = []
         self.headers: set[int] = set()
         self.candidates: list[CestCandidate] = []
+        self.heading_parts: list[str] = []
+        self.heading_active = False
+        self.heading_context: list[str] = []
+        self.context_by_table: dict[int, tuple[str, ...]] = {}
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         class_value = next((value for name, value in attrs if name == "class" and value), "")
         if tag == "table":
             self.table_counter += 1
             self.table_stack.append(self.table_counter)
+            self.context_by_table[self.table_counter] = tuple(self.heading_context)
         elif tag == "tr":
             if self.in_row or not self.table_stack:
                 return
@@ -103,10 +109,15 @@ class _TableParser(HTMLParser):
             self.cell_tags.append(tag)
             if class_value:
                 self.cell_classes.append(_clean_text(class_value))
+        elif tag == "p" and not self.table_stack and class_value.startswith("A6-1Subtitulo"):
+            self.heading_active = True
+            self.heading_parts = []
 
     def handle_data(self, data: str) -> None:
         if self.in_cell and self.table_stack and self.table_stack[-1] == self.cell_table_index:
             self.cell_parts.append(data)
+        elif self.heading_active:
+            self.heading_parts.append(data)
 
     def handle_endtag(self, tag: str) -> None:
         if tag in {"td", "th"} and self.in_cell and self.table_stack and self.table_stack[-1] == self.cell_table_index:
@@ -122,6 +133,15 @@ class _TableParser(HTMLParser):
         elif tag == "table":
             if self.table_stack:
                 self.table_stack.pop()
+        elif tag == "p" and self.heading_active:
+            heading = _clean_text("".join(self.heading_parts))
+            self.heading_active = False
+            if heading:
+                if "ANEXO " in _header_text(heading):
+                    self.heading_context = [heading]
+                else:
+                    self.heading_context.append(heading)
+                    self.heading_context = self.heading_context[-8:]
 
     def _finish_row(self) -> None:
         normalized = tuple(_header_text(cell) for cell in self.cells)
@@ -142,6 +162,7 @@ class _TableParser(HTMLParser):
                 cest_code=cest_code,
                 ncm_sh_raw=ncm_sh_raw,
                 description=description,
+                source_context=self.context_by_table.get(self.row_table_index, ()),
                 source_cell_classes=tuple(self.cells_classes),
                 source_cell_tags=tuple(self.cells_tags),
             )
@@ -203,6 +224,7 @@ def diff_cest_candidate_snapshots(previous: bytes, current: bytes) -> CestCandid
         "cest_code",
         "ncm_sh_raw",
         "description",
+        "source_context",
         "source_cell_classes",
         "source_cell_tags",
         "legal_status",
