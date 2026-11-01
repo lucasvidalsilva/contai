@@ -1,10 +1,13 @@
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from contai_tax_data.cest_candidates import (
     CestCandidateContractError,
+    cest_candidates_jsonl,
+    diff_cest_candidate_snapshots,
     extract_cest_candidate_artifact,
     parse_cest_candidates,
 )
@@ -67,3 +70,27 @@ def test_candidate_extraction_is_immutable_and_idempotent(tmp_path: Path) -> Non
     assert not second.candidates_created and not second.manifest_created
     rows = (tmp_path / "store" / first.candidates_path).read_text(encoding="utf-8").splitlines()
     assert all(json.loads(row)["legal_status"] == "unresolved" for row in rows)
+
+
+def test_candidate_diff_counts_multiset_changes_without_treating_row_movement_as_change() -> None:
+    old_candidates = parse_cest_candidates(FIXTURE.read_bytes())
+    new_candidates = (
+        replace(old_candidates[0], source_row_index=old_candidates[0].source_row_index + 10),
+        replace(old_candidates[1], description="Descrição alterada"),
+    )
+    previous = cest_candidates_jsonl(old_candidates, "a" * 64)
+    current = cest_candidates_jsonl(new_candidates, "b" * 64)
+
+    result = diff_cest_candidate_snapshots(previous, current)
+
+    assert result.added_occurrences == 1
+    assert result.removed_occurrences == 1
+    assert result.unchanged_occurrences == 1
+
+
+def test_candidate_diff_rejects_mixed_source_artifacts() -> None:
+    candidates = parse_cest_candidates(FIXTURE.read_bytes())
+    mixed = cest_candidates_jsonl(candidates[:1], "a" * 64) + cest_candidates_jsonl(candidates[1:], "b" * 64)
+
+    with pytest.raises(ValueError, match="unico artifact_sha256"):
+        diff_cest_candidate_snapshots(mixed, cest_candidates_jsonl(candidates, "c" * 64))

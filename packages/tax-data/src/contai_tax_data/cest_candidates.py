@@ -8,13 +8,14 @@ import os
 import re
 import tempfile
 import unicodedata
+from collections import Counter
 from dataclasses import asdict, dataclass
 from html.parser import HTMLParser
 from pathlib import Path
 
 from contai_tax_data.cest_capture import CEST_SOURCE_URL
 
-CEST_CANDIDATE_CONTRACT = "cest-candidate-v2"
+CEST_CANDIDATE_CONTRACT = "cest-candidate-v3"
 _CEST_CODE = re.compile(r"^\d{2}\.\d{3}\.\d{2}$")
 _EXPECTED_HEADER = ("ITEM", "CEST", "NCM/SH", "DESCRICAO")
 
@@ -44,6 +45,17 @@ class CestCandidateExtractionResult:
     candidates_path: str
     candidates_created: bool
     manifest_created: bool
+
+
+@dataclass(frozen=True, slots=True)
+class CestCandidateDiff:
+    previous_artifact_sha256: str
+    current_artifact_sha256: str
+    previous_candidate_set_sha256: str
+    current_candidate_set_sha256: str
+    added_occurrences: int
+    removed_occurrences: int
+    unchanged_occurrences: int
 
 
 class _TableParser(HTMLParser):
@@ -170,7 +182,7 @@ def cest_candidates_jsonl(candidates: tuple[CestCandidate, ...], artifact_sha256
     for candidate in candidates:
         lines.append(
             json.dumps(
-                {"artifact_sha256": artifact_sha256, **asdict(candidate)},
+                {"artifact_sha256": artifact_sha256, "parser_id": CEST_CANDIDATE_CONTRACT, **asdict(candidate)},
                 ensure_ascii=False,
                 sort_keys=True,
                 separators=(",", ":"),
@@ -182,6 +194,56 @@ def cest_candidates_jsonl(candidates: tuple[CestCandidate, ...], artifact_sha256
 def cest_candidate_ids(candidates_jsonl: bytes) -> str:
     """Hash do conjunto extraído, separado do hash do HTML bruto."""
     return hashlib.sha256(candidates_jsonl).hexdigest()
+
+
+def diff_cest_candidate_snapshots(previous: bytes, current: bytes) -> CestCandidateDiff:
+    """Compara ocorrências textuais; não classifica inclusão ou revogação legal."""
+    signature_fields = (
+        "item_label",
+        "cest_code",
+        "ncm_sh_raw",
+        "description",
+        "source_cell_classes",
+        "source_cell_tags",
+        "legal_status",
+    )
+
+    def read_snapshot(body: bytes) -> tuple[str, Counter[str]]:
+        try:
+            records = [json.loads(line) for line in body.decode("utf-8").splitlines() if line.strip()]
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            raise ValueError("snapshot de candidatos CEST invalido") from None
+        if not records or any(not isinstance(record, dict) for record in records):
+            raise ValueError("snapshot de candidatos CEST vazio ou fora do contrato")
+        artifact_ids = {record.get("artifact_sha256") for record in records}
+        if len(artifact_ids) != 1 or not all(
+            isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) for value in artifact_ids
+        ):
+            raise ValueError("snapshot precisa conter um unico artifact_sha256 valido")
+        for record in records:
+            if record.get("parser_id") != CEST_CANDIDATE_CONTRACT or record.get("legal_status") != "unresolved":
+                raise ValueError("parser ou estado juridico incompatível no snapshot CEST")
+            if any(field not in record for field in signature_fields):
+                raise ValueError("campos de comparacao ausentes no snapshot CEST")
+        signatures = Counter(
+            json.dumps([record[field] for field in signature_fields], ensure_ascii=False, sort_keys=True)
+            for record in records
+        )
+        return next(iter(artifact_ids)), signatures
+
+    previous_artifact, previous_signatures = read_snapshot(previous)
+    current_artifact, current_signatures = read_snapshot(current)
+    added = current_signatures - previous_signatures
+    removed = previous_signatures - current_signatures
+    return CestCandidateDiff(
+        previous_artifact_sha256=previous_artifact,
+        current_artifact_sha256=current_artifact,
+        previous_candidate_set_sha256=hashlib.sha256(previous).hexdigest(),
+        current_candidate_set_sha256=hashlib.sha256(current).hexdigest(),
+        added_occurrences=sum(added.values()),
+        removed_occurrences=sum(removed.values()),
+        unchanged_occurrences=sum((previous_signatures & current_signatures).values()),
+    )
 
 
 def _write_once(path: Path, content: bytes) -> bool:

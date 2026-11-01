@@ -11,7 +11,7 @@ from pathlib import Path
 
 import psycopg
 
-from contai_tax_data.cest_candidates import extract_cest_candidate_artifact
+from contai_tax_data.cest_candidates import diff_cest_candidate_snapshots, extract_cest_candidate_artifact
 from contai_tax_data.cest_capture import capture_cest
 from contai_tax_data.ibs_cbs import IBS_CBS_ACCEPT
 from contai_tax_data.ibs_cbs_storage import capture_ibs_cbs
@@ -64,6 +64,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     cest_candidates.add_argument("artifact", type=Path, help="caminho do HTML CEST bruto já capturado")
     cest_candidates.add_argument("--output", type=Path, default=Path("var/tax-data/cest"))
+
+    diff_cest = commands.add_parser(
+        "diff-cest-candidates", help="compara ocorrências textuais de duas extrações candidatas CEST"
+    )
+    diff_cest.add_argument("previous", type=Path)
+    diff_cest.add_argument("current", type=Path)
 
     stage_ibs_cbs = commands.add_parser(
         "stage-ibs-cbs", help="revalida e persiste uma release IBS/CBS no schema privado"
@@ -127,6 +133,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "extract-cest-candidates":
         candidates_result = extract_cest_candidate_artifact(args.artifact, args.output)
         print(json.dumps(asdict(candidates_result), ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "diff-cest-candidates":
+        diff_result = diff_cest_candidate_snapshots(args.previous.read_bytes(), args.current.read_bytes())
+        print(json.dumps(asdict(diff_result), ensure_ascii=False, sort_keys=True))
         return 0
     if args.command == "stage-ibs-cbs":
         with psycopg.connect(_database_url(), sslmode="require") as connection:
