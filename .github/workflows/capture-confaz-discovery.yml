@@ -1,0 +1,86 @@
+name: Capture CONFAZ sitemap
+
+on:
+  workflow_dispatch:
+    inputs:
+      timeout:
+        description: Request timeout in seconds
+        required: false
+        default: "45"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: capture-confaz-sitemap
+  cancel-in-progress: false
+
+jobs:
+  discover-confaz:
+    name: Archive sitemap and list act candidates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: packages/tax-data/uv.lock
+
+      - name: Install locked Python environment
+        run: uv sync --locked --project packages/tax-data
+
+      - name: Capture the official sitemap once
+        id: capture
+        shell: bash
+        env:
+          CAPTURE_TIMEOUT: ${{ inputs.timeout || '45' }}
+        run: |
+          set -euo pipefail
+          uv run --project packages/tax-data contai-tax-data capture-confaz-sitemap \
+            --output var/tax-data \
+            --timeout "$CAPTURE_TIMEOUT" \
+            | tee capture-result.json
+          {
+            echo '## Captura do sitemap CONFAZ'
+            echo
+            echo 'O sitemap GZip foi arquivado por hash; lastmod permanece metadado da fonte.'
+            echo
+            echo '```json'
+            cat capture-result.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: List candidate act URLs
+        shell: bash
+        run: |
+          set -euo pipefail
+          RAW_PATH="$(uv run --project packages/tax-data python -c 'import json; print(json.load(open("capture-result.json", encoding="utf-8"))["raw_path"])')"
+          CAPTURED_AT="$(uv run --project packages/tax-data python -c 'import json; print(json.load(open("capture-result.json", encoding="utf-8"))["captured_at"].replace(":", "-"))')"
+          ARTIFACT_SHA="$(uv run --project packages/tax-data python -c 'import json; print(json.load(open("capture-result.json", encoding="utf-8"))["artifact_sha256"])')"
+          OBSERVATION="var/tax-data/confaz/artifacts/observations/${ARTIFACT_SHA}/${CAPTURED_AT}.json"
+          uv run --project packages/tax-data contai-tax-data discover-confaz-acts \
+            "var/tax-data/confaz/${RAW_PATH}" "$OBSERVATION" \
+            --output var/tax-data/confaz \
+            | tee discovery-result.json
+          {
+            echo
+            echo '### URLs candidatas'
+            echo
+            echo 'Lista limitada a convênios, ajustes e protocolos; nenhuma vigência ou efeito jurídico é inferido.'
+            echo
+            echo '```json'
+            cat discovery-result.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload captured source and discovery
+        uses: actions/upload-artifact@v4
+        if: always() && steps.capture.outcome == 'success'
+        with:
+          name: confaz-discovery-${{ github.run_id }}
+          path: var/tax-data/confaz/
+          if-no-files-found: error
+          retention-days: 14

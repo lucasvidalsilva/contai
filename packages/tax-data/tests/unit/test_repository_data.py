@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import gzip
 import hashlib
 import json
 from pathlib import Path
 
 from contai_tax_data.cest_candidates import CEST_CANDIDATE_CONTRACT, cest_candidates_jsonl, parse_cest_candidates
+from contai_tax_data.confaz_discovery import candidates_jsonl, parse_confaz_sitemap, write_confaz_discovery
 from contai_tax_data.federal_law import blocks_jsonl, parse_lc214_blocks, validate_lc214_block_volume
 from contai_tax_data.postgres import load_local_ibs_cbs_release, load_local_ncm_release, load_local_tipi_release
 
@@ -104,3 +106,32 @@ def test_versioned_lc214_publication_records_keep_separate_provenance() -> None:
         assert observation["http_status"] == 200
         assert hashlib.sha256(artifact).hexdigest() == observation["artifact_sha256"] == artifact_sha256
         assert len(artifact) == observation["byte_size"] == byte_size
+
+
+def test_versioned_confaz_discovery_reprocesses_its_archived_sitemap() -> None:
+    root = DATA_ROOT / "confaz"
+    capture = json.loads((root / "state" / "confaz-sitemap-latest-capture.json").read_text(encoding="utf-8"))
+    raw_path = root / capture["raw_path"]
+    raw = raw_path.read_bytes()
+    observation = next((root / "artifacts" / "observations" / capture["artifact_sha256"]).glob("*.json"))
+    current = json.loads((root / "state" / "confaz-discovery-latest.json").read_text(encoding="utf-8"))
+    snapshot_path = root / current["candidates_path"]
+    snapshot = snapshot_path.read_bytes()
+    candidates = parse_confaz_sitemap(gzip.decompress(raw))
+
+    assert hashlib.sha256(raw).hexdigest() == capture["artifact_sha256"] == current["artifact_sha256"]
+    assert capture["byte_size"] == len(raw) == 325_836
+    assert capture["http_status"] == 200
+    assert capture["contract_version"] == "confaz-sitemap-gzip-v1"
+    assert (
+        hashlib.sha256(snapshot).hexdigest()
+        == current["snapshot_sha256"]
+        == "106e8b06f556eebf7e98b4ee94814fe93199299d4eb5e35eebaa2b4b9215c7e0"
+    )
+    assert len(candidates) == current["candidate_count"] == 11_369
+    assert current["source_url_count"] == current["source_lastmod_count"] == 30_746
+    assert current["section_counts"] == {"ajustes": 1_026, "convenios": 6_942, "protocolos": 3_401}
+    assert current["interpretation_status"] == "not_performed"
+    assert candidates_jsonl(candidates) == snapshot
+    rerun = write_confaz_discovery(raw_path, observation, root)
+    assert rerun["snapshot_sha256"] == current["snapshot_sha256"]

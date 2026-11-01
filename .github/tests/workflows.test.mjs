@@ -85,3 +85,18 @@ test("captura LC 214 é manual, arquiva fonte bruta e não publica no banco", as
   assert.ok(!workflow.jobs["capture-lc214"].steps.some((step) => step.run?.includes("publish-")));
   assert.ok(!workflow.jobs["capture-lc214"].steps.some((step) => step.env?.SUPABASE_URL));
 });
+
+test("descoberta CONFAZ é manual, captura o sitemap e não publica atos", async () => {
+  const workflow = await readWorkflow("capture-confaz-discovery.yml");
+
+  assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
+  assert.ok(workflow.jobs["discover-confaz"].steps.some((step) => step.run?.includes("capture-confaz-sitemap")));
+  const discovery = workflow.jobs["discover-confaz"].steps.find((step) => step.run?.includes("discover-confaz-acts"));
+  assert.ok(discovery);
+  assert.ok(!Object.hasOwn(discovery, "continue-on-error"), "mudança de schema deve falhar o workflow após preservar a captura");
+  const upload = workflow.jobs["discover-confaz"].steps.find((step) => step.uses?.startsWith("actions/upload-artifact@"));
+  assert.ok(upload);
+  assert.equal(upload.if, "always() && steps.capture.outcome == 'success'");
+  assert.ok(!workflow.jobs["discover-confaz"].steps.some((step) => step.run?.includes("publish-")));
+  assert.ok(!workflow.jobs["discover-confaz"].steps.some((step) => step.env?.SUPABASE_URL));
+});

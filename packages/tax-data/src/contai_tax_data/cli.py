@@ -14,6 +14,7 @@ import psycopg
 from contai_tax_data.cest_candidates import diff_cest_candidate_snapshots, extract_cest_candidate_artifact
 from contai_tax_data.cest_capture import capture_cest
 from contai_tax_data.cest_postgres import stage_cest_candidates
+from contai_tax_data.confaz_discovery import capture_confaz_sitemap, write_confaz_discovery
 from contai_tax_data.federal_law import write_lc214_blocks
 from contai_tax_data.ibs_cbs import IBS_CBS_ACCEPT
 from contai_tax_data.ibs_cbs_storage import capture_ibs_cbs
@@ -75,6 +76,19 @@ def build_parser() -> argparse.ArgumentParser:
     lc214_blocks.add_argument("artifact", type=Path, help="caminho do HTML LC 214 já capturado")
     lc214_blocks.add_argument("observation", type=Path, help="observação da captura correspondente")
     lc214_blocks.add_argument("--output", type=Path, default=Path("var/tax-data/laws/lc214"))
+
+    confaz_capture = commands.add_parser(
+        "capture-confaz-sitemap", help="captura o sitemap oficial do CONFAZ sem interpretar lastmod como vigÃªncia"
+    )
+    confaz_capture.add_argument("--output", type=Path, default=Path("var/tax-data"))
+    confaz_capture.add_argument("--timeout", type=float, default=45.0, dest="timeout_seconds")
+
+    confaz_discovery = commands.add_parser(
+        "discover-confaz-acts", help="lista URLs candidatas do sitemap arquivado sem interpretar efeitos jurÃ­dicos"
+    )
+    confaz_discovery.add_argument("artifact", type=Path, help="sitemap GZip jÃ¡ capturado")
+    confaz_discovery.add_argument("observation", type=Path, help="observaÃ§Ã£o da captura correspondente")
+    confaz_discovery.add_argument("--output", type=Path, default=Path("var/tax-data/confaz"))
 
     cest_candidates = commands.add_parser(
         "extract-cest-candidates", help="extrai linhas candidatas do HTML CEST, sem decidir vigência"
@@ -167,6 +181,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         block_result = write_lc214_blocks(args.artifact, args.observation, args.output)
         print(json.dumps(block_result, ensure_ascii=False, sort_keys=True))
         return 0
+    if args.command == "capture-confaz-sitemap":
+        client = SourceClient(
+            accept="application/gzip, application/octet-stream", attempts=2, timeout_seconds=args.timeout_seconds
+        )
+        sitemap_result = capture_confaz_sitemap(args.output / "confaz", client=client)
+        print(json.dumps(asdict(sitemap_result), ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "discover-confaz-acts":
+        discovery_result = write_confaz_discovery(args.artifact, args.observation, args.output)
+        print(json.dumps(discovery_result, ensure_ascii=False, sort_keys=True))
+        return 0
+
     if args.command == "extract-cest-candidates":
         candidates_result = extract_cest_candidate_artifact(args.artifact, args.output)
         print(json.dumps(asdict(candidates_result), ensure_ascii=False, sort_keys=True))

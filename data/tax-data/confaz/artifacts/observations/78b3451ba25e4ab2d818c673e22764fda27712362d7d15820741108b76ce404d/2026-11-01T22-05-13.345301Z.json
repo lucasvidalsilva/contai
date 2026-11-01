@@ -1,0 +1,16 @@
+{
+  "artifact_sha256": "78b3451ba25e4ab2d818c673e22764fda27712362d7d15820741108b76ce404d",
+  "byte_size": 325836,
+  "captured_at": "2026-11-01T22:05:13.345301Z",
+  "contract_version": "confaz-sitemap-gzip-v1",
+  "decompressed_byte_size": 4931396,
+  "final_url": "https://www.confaz.fazenda.gov.br/sitemap.xml.gz",
+  "http_status": 200,
+  "raw_path": "artifacts/sha256/78/78b3451ba25e4ab2d818c673e22764fda27712362d7d15820741108b76ce404d.xml.gz",
+  "requested_url": "https://www.confaz.fazenda.gov.br/sitemap.xml.gz",
+  "response_headers": {
+    "content-type": "application/octet-stream"
+  },
+  "source_authority": "CONFAZ",
+  "status": "captured_raw_validated_gzip_xml"
+}

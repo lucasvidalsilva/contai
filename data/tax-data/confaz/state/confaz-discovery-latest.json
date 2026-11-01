@@ -1,0 +1,20 @@
+{
+  "artifact_sha256": "78b3451ba25e4ab2d818c673e22764fda27712362d7d15820741108b76ce404d",
+  "candidate_count": 11369,
+  "candidates_created": false,
+  "candidates_path": "discoveries/78b3451ba25e4ab2d818c673e22764fda27712362d7d15820741108b76ce404d/confaz-act-candidate-v1/confaz-act-candidates.jsonl",
+  "contract_version": "confaz-act-candidate-v1",
+  "interpretation_status": "not_performed",
+  "lastmod_semantics": "source_metadata_only_not_legal_effective_date",
+  "manifest_created": false,
+  "section_counts": {
+    "ajustes": 1026,
+    "convenios": 6942,
+    "protocolos": 3401
+  },
+  "snapshot_sha256": "106e8b06f556eebf7e98b4ee94814fe93199299d4eb5e35eebaa2b4b9215c7e0",
+  "source_authority": "CONFAZ",
+  "source_lastmod_count": 30746,
+  "source_url": "https://www.confaz.fazenda.gov.br/sitemap.xml.gz",
+  "source_url_count": 30746
+}
