@@ -77,7 +77,11 @@ test("captura LC 214 é manual, arquiva fonte bruta e não publica no banco", as
   const capture = workflow.jobs["capture-lc214"].steps.find((step) => step.run?.includes("capture-lc214"));
   assert.ok(capture);
   assert.equal(capture.env.CAPTURE_TIMEOUT, "${{ inputs.timeout || '45' }}");
+  assert.ok(workflow.jobs["capture-lc214"].steps.some((step) => step.run?.includes("write_lc214_blocks")));
+  assert.ok(workflow.jobs["capture-lc214"].steps.some((step) => step.run?.includes("capture-lc214-records")));
   assert.ok(workflow.jobs["capture-lc214"].steps.some((step) => step.uses?.startsWith("actions/upload-artifact@")));
+  const upload = workflow.jobs["capture-lc214"].steps.find((step) => step.uses?.startsWith("actions/upload-artifact@"));
+  assert.equal(upload.if, "always()");
   assert.ok(!workflow.jobs["capture-lc214"].steps.some((step) => step.run?.includes("publish-")));
   assert.ok(!workflow.jobs["capture-lc214"].steps.some((step) => step.env?.SUPABASE_URL));
 });

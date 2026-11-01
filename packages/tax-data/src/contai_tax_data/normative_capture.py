@@ -16,6 +16,21 @@ from contai_tax_data.source import RetrievedArtifact
 LC_214_SOURCE_URL = "https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-normaatualizada-pl.html"
 LC_214_SOURCE_ACT = "Lei Complementar 214/2025 (texto atualizado pela Câmara dos Deputados)"
 NORMATIVE_CAPTURE_CONTRACT = "camara-law-current-raw-v1"
+LC_214_OFFICIAL_RECORDS = {
+    "original": (
+        "https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-publicacaooriginal-174141-pl.html",
+        "Lei Complementar 214/2025 (publicação original)",
+    ),
+    "veto": (
+        "https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-veto-174147-pl.html",
+        "Lei Complementar 214/2025 (mensagem de veto)",
+    ),
+    "promulgation": (
+        "https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-promulgacaodevetos-175784-pl.html",
+        "Lei Complementar 214/2025 (promulgação de vetos)",
+    ),
+}
+OFFICIAL_RECORD_CAPTURE_CONTRACT = "camara-law-record-raw-v1"
 _SAFE_HEADERS = frozenset({"content-type", "content-length", "etag", "last-modified", "cache-control"})
 
 
@@ -66,15 +81,74 @@ def _write_pointer(path: Path, content: bytes) -> None:
 
 def capture_lc214_artifact(artifact: RetrievedArtifact, output_dir: Path) -> NormativeCaptureResult:
     """Armazena texto atualizado oficial da Câmara por conteúdo, sem interpretar vigência."""
-    if artifact.requested_url != LC_214_SOURCE_URL:
-        raise ValueError("URL solicitada nao corresponde a fonte LC 214 cadastrada")
+    return _capture_camara_artifact(
+        artifact,
+        output_dir,
+        expected_url=LC_214_SOURCE_URL,
+        source_act=LC_214_SOURCE_ACT,
+        contract_version=NORMATIVE_CAPTURE_CONTRACT,
+        pointer_name="lc214-latest-capture.json",
+    )
+
+
+def capture_lc214(output_dir: Path, *, client: NormativeSourceClient) -> NormativeCaptureResult:
+    """Faz uma requisição ao texto oficial compilado da LC 214/2025."""
+    return capture_lc214_artifact(client.fetch(LC_214_SOURCE_URL), output_dir)
+
+
+def capture_lc214_official_record_artifact(
+    artifact: RetrievedArtifact, output_dir: Path, *, record_id: str
+) -> NormativeCaptureResult:
+    """Arquiva uma publicação relacionada à LC 214 referenciada pela ficha oficial da Câmara."""
+    if record_id not in LC_214_OFFICIAL_RECORDS:
+        raise ValueError("identificador de publicação oficial LC 214 desconhecido")
+    source_url, source_act = LC_214_OFFICIAL_RECORDS[record_id]
+    return _capture_camara_artifact(
+        artifact,
+        output_dir,
+        expected_url=source_url,
+        source_act=source_act,
+        contract_version=OFFICIAL_RECORD_CAPTURE_CONTRACT,
+        pointer_name="latest-capture.json",
+        record_id=record_id,
+    )
+
+
+def capture_lc214_official_records(
+    output_dir: Path, *, client: NormativeSourceClient
+) -> dict[str, NormativeCaptureResult]:
+    """Captura texto original, veto e promulgação sem consolidar seus efeitos jurídicos."""
+    return {
+        record_id: capture_lc214_official_record_artifact(
+            client.fetch(source_url), output_dir / "records" / record_id, record_id=record_id
+        )
+        for record_id, (source_url, _source_act) in LC_214_OFFICIAL_RECORDS.items()
+    }
+
+
+def _capture_camara_artifact(
+    artifact: RetrievedArtifact,
+    output_dir: Path,
+    *,
+    expected_url: str,
+    source_act: str,
+    contract_version: str,
+    pointer_name: str,
+    record_id: str | None = None,
+) -> NormativeCaptureResult:
+    if artifact.requested_url != expected_url:
+        raise ValueError("URL solicitada não corresponde à fonte oficial cadastrada")
+    if artifact.final_url != expected_url:
+        raise ValueError("URL final redirecionou para fora da fonte oficial cadastrada")
     if not 200 <= artifact.status < 300:
-        raise ValueError(f"status HTTP inesperado para LC 214: {artifact.status}")
+        raise ValueError(f"status HTTP inesperado para fonte oficial: {artifact.status}")
     content_type = artifact.headers.get("content-type", "").split(";", maxsplit=1)[0].strip().lower()
     if content_type != "text/html":
-        raise ValueError(f"Content-Type LC 214 inesperado: {content_type or '(ausente)'}")
+        raise ValueError(f"Content-Type da fonte oficial inesperado: {content_type or '(ausente)'}")
+    if "charset=utf-8" not in artifact.headers.get("content-type", "").lower().replace(" ", ""):
+        raise ValueError("charset da fonte oficial inesperado; esperado UTF-8")
     if not artifact.body:
-        raise ValueError("artefato LC 214 vazio")
+        raise ValueError("artefato oficial vazio")
     if artifact.captured_at.tzinfo is None:
         raise ValueError("captured_at precisa de timezone")
 
@@ -89,19 +163,21 @@ def capture_lc214_artifact(artifact: RetrievedArtifact, output_dir: Path) -> Nor
         "artifact_sha256": digest,
         "byte_size": len(artifact.body),
         "captured_at": captured_at,
-        "contract_version": NORMATIVE_CAPTURE_CONTRACT,
+        "contract_version": contract_version,
         "final_url": artifact.final_url,
         "http_status": artifact.status,
         "raw_path": relative_raw_path,
         "requested_url": artifact.requested_url,
         "response_headers": safe_headers,
-        "source_act": LC_214_SOURCE_ACT,
+        "source_act": source_act,
         "source_authority": "Câmara dos Deputados - Legislação Informatizada",
         "status": "captured_raw_unparsed",
     }
+    if record_id is not None:
+        observation["source_record_id"] = record_id
     observation_path = root / "artifacts" / "observations" / digest / f"{captured_at.replace(':', '-')}.json"
     observation_created = _write_once(observation_path, _json_bytes(observation))
-    _write_pointer(root / "state" / "lc214-latest-capture.json", _json_bytes(observation))
+    _write_pointer(root / "state" / pointer_name, _json_bytes(observation))
     return NormativeCaptureResult(
         artifact_sha256=digest,
         artifact_created=artifact_created,
@@ -110,8 +186,3 @@ def capture_lc214_artifact(artifact: RetrievedArtifact, output_dir: Path) -> Nor
         captured_at=captured_at,
         raw_path=relative_raw_path,
     )
-
-
-def capture_lc214(output_dir: Path, *, client: NormativeSourceClient) -> NormativeCaptureResult:
-    """Faz uma requisição ao texto oficial compilado da LC 214/2025."""
-    return capture_lc214_artifact(client.fetch(LC_214_SOURCE_URL), output_dir)

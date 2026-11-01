@@ -10,9 +10,12 @@ Esta pasta contém snapshots públicos capturados diretamente das fontes oficiai
 | Receita Federal — TIPI | 2026-11-01 | `d155f1baafb4039dcb74f97bb5abc1aec69f6760da9bd3f94a90bd40b33a2e9a` | `9254e157b3766355d0a8b1ec16ede911199787781d357d85b6d2dc85ec4c7bba` | 11.103 itens, 582 exceções |
 | SVRS — IBS/CBS | 2026-11-01 | `5e1825e961461d18124ab3d7dd7f1b084688a53bd6afdc69311dd65378f6ccc9` | `e858a554bb21a386c9e65f4330d83ef562b77a3bb8067934158a86451d6d9e59` | 18 CST, 173 classificações, 4.728 vínculos |
 | CONFAZ — CEST | 2026-11-01 | `7c2bdc9db1ceb11faaa56b2582e77e5a1bcb66e51cd62b6de0f155a78359c45a` | `0f39241a25eb02b0ae16b3c9d13879e7731b32f88d297f4d295698ab3cfee9e5` | 1.569 candidatos; todos `unresolved`; captura confirmou texto do Convênio 107/26 |
-| Câmara dos Deputados — LC 214/2025 atualizada | 2026-11-01 | `dc87a43e7a4c293bc3c47817754286438db33a7c42472eb0400258e7707a2bde` | Sem release (bruto não interpretado) | HTML oficial, 3.095.827 bytes; sem extração ou conclusão de vigência |
+| Câmara dos Deputados — LC 214/2025 atualizada | 2026-11-01 | `dc87a43e7a4c293bc3c47817754286438db33a7c42472eb0400258e7707a2bde` | Snapshot estrutural `d6eed7211094e706b096c6fd909ea8579c98de5208c17f13ea746397f3c24dea` | HTML oficial, 3.095.827 bytes; parser `federal-law-block-v3`, 8.793 blocos e 581 marcadores de artigo, sem vigência interpretada |
+| Câmara — publicação original LC 214/2025 | 2026-11-01 | `efd06578a4789874fd277c3dbf68d424cd9b4baebc1a853735ec350b692ecd29` | Sem parsing | HTML oficial, 958.783 bytes |
+| Câmara — mensagem de veto LC 214/2025 | 2026-11-01 | `de0fedef4f5c0725fd9a505675c7651b3c72b605466d37649dd368778ff5dc90` | Sem parsing | HTML oficial, 77.738 bytes |
+| Câmara — promulgação dos vetos LC 214/2025 | 2026-11-01 | `554c50ed37f0aadf63bcf401814409fdfa3541b18a4149f67e0a7b0093638d3b` | Sem parsing | HTML oficial, 43.729 bytes |
 
-Cada pasta de domínio preserva os caminhos de artefato, manifesto, release e ponteiro esperados pelos fluxos locais. NCM, TIPI e IBS/CBS têm releases estruturadas; CEST e LC 214 permanecem evidências brutas/candidatas e não devem alimentar cálculo fiscal.
+Cada pasta de domínio preserva os caminhos de artefato, manifesto, snapshot e ponteiro esperados pelos fluxos locais. NCM, TIPI e IBS/CBS têm releases estruturadas; CEST permanece como candidatos unresolved. LC 214 tem texto bruto e blocos estruturais literais, sem relações históricas, status de vigência ou aptidão para cálculo fiscal.
 
 As URLs, cabeçalhos permitidos, horários completos, tamanho e status HTTP ficam nos manifestos das respectivas capturas. A atribuição à fonte oficial acompanha os metadados. A licença do código deste repositório não é apresentada como licença concedida por Receita Federal, SVRS, CONFAZ ou Câmara dos Deputados para seus arquivos.
 

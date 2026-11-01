@@ -1,9 +1,15 @@
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
-from contai_tax_data.normative_capture import LC_214_SOURCE_URL, capture_lc214_artifact
+from contai_tax_data.normative_capture import (
+    LC_214_OFFICIAL_RECORDS,
+    LC_214_SOURCE_URL,
+    capture_lc214_artifact,
+    capture_lc214_official_records,
+)
 from contai_tax_data.source import RetrievedArtifact
 
 
@@ -11,12 +17,13 @@ def _artifact(
     *,
     body: bytes = b"<html><title>LC 214</title></html>",
     url: str = LC_214_SOURCE_URL,
+    final_url: str | None = None,
     content_type: str = "text/html; charset=utf-8",
     status: int = 200,
 ) -> RetrievedArtifact:
     return RetrievedArtifact(
         requested_url=url,
-        final_url=url,
+        final_url=final_url or url,
         status=status,
         headers={"content-type": content_type, "set-cookie": "must-not-be-stored"},
         body=body,
@@ -52,7 +59,9 @@ def test_same_capture_is_idempotent(tmp_path: Path) -> None:
     ("artifact", "message"),
     [
         (_artifact(url="https://example.invalid/law"), "URL solicitada"),
+        (_artifact(final_url="https://example.invalid/redirected.html"), "URL final"),
         (_artifact(content_type="application/json"), "Content-Type"),
+        (_artifact(content_type="text/html; charset=iso-8859-1"), "charset"),
         (_artifact(status=403), "status HTTP"),
         (_artifact(body=b""), "vazio"),
     ],
@@ -60,3 +69,29 @@ def test_same_capture_is_idempotent(tmp_path: Path) -> None:
 def test_unexpected_response_is_rejected(tmp_path: Path, artifact: RetrievedArtifact, message: str) -> None:
     with pytest.raises(ValueError, match=message):
         capture_lc214_artifact(artifact, tmp_path)
+
+
+def test_related_official_records_are_captured_separately_and_idempotently(tmp_path: Path) -> None:
+    class Client:
+        def __init__(self) -> None:
+            self.requested_urls: list[str] = []
+
+        def fetch(self, url: str) -> RetrievedArtifact:
+            self.requested_urls.append(url)
+            return _artifact(url=url, body=url.encode())
+
+    client = Client()
+    first = capture_lc214_official_records(tmp_path, client=client)
+    second = capture_lc214_official_records(tmp_path, client=client)
+
+    assert set(first) == set(second) == set(LC_214_OFFICIAL_RECORDS)
+    assert len(client.requested_urls) == 2 * len(LC_214_OFFICIAL_RECORDS)
+    assert all(first[key].artifact_sha256 == second[key].artifact_sha256 for key in first)
+    assert all(not second[key].artifact_created and not second[key].observation_created for key in second)
+    for record_id in LC_214_OFFICIAL_RECORDS:
+        pointer = json.loads(
+            (tmp_path / "records" / record_id / "state" / "latest-capture.json").read_text(encoding="utf-8")
+        )
+        assert pointer["source_record_id"] == record_id
+        assert pointer["contract_version"] == "camara-law-record-raw-v1"
+        assert pointer["source_authority"] == "Câmara dos Deputados - Legislação Informatizada"

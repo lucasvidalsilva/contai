@@ -1,0 +1,897 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="pt-br" xml:lang="pt-br">
+<head>
+
+    <meta http-equiv="Content-Type" content="text/html charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="apple-itunes-app" content="app-id=1049343067" />
+    <meta name="google-play-app" content="app-id=br.leg.camara.infolegmovel" />
+    <script>
+      (function () {
+        let initialized = false;
+        let loading = false;
+
+        function ensureBody(callback) {
+          if (document.body) {
+            callback();
+          } else {
+            setTimeout(() => ensureBody(callback), 50);
+          }
+        }
+
+        function loadScript() {
+          if (loading || window.VLibras) return;
+          loading = true;
+
+          ensureBody(() => {
+            const s = document.createElement("script");
+            s.src = "https://vlibras.gov.br/app/vlibras-plugin.js";
+            s.onload = initVLibras;
+            document.body.appendChild(s);
+          });
+        }
+
+        function initVLibras() {
+          if (initialized || !window.VLibras) return;
+
+          ensureBody(() => {
+            if (!document.querySelector("[vw]")) {
+              const container = document.createElement("div");
+              container.innerHTML = `
+              <div vw class="enabled">
+                <div vw-access-button class="active"></div>
+                <div vw-plugin-wrapper>
+                  <div class="vw-plugin-top-wrapper"></div>
+                </div>
+              </div>
+            `;
+              document.body.appendChild(container);
+            }
+
+            (new window.VLibras.Widget(
+              "https://vlibras.gov.br/app",
+              "https://vlibras.gov.br/config/camara.json",
+            ),
+              $("body").append(
+                '<aside><div vw class="enabled"><div vw-access-button class="active"></div><div vw-plugin-wrapper><div class="vw-plugin-top-wrapper"></div></div></div></aside>',
+              ));
+            initialized = true;
+
+            injectCSS();
+            if (!window.location.pathname.includes("/comissoes")) {
+              bindButton();
+            }
+          });
+        }
+
+        function injectCSS() {
+          if (document.getElementById("vlibras-style")) return;
+          const style = document.createElement("style");
+          style.id = "vlibras-style";
+          style.innerHTML = `
+          [vw-access-button] { display: none !important; }
+          div[vw] { z-index: 999999 !important; }
+        `;
+          document.head.appendChild(style);
+        }
+
+        function bindButton() {
+          const btn = document.getElementById("meu-botao-vlibras");
+          if (!btn) {
+            setTimeout(bindButton, 300);
+            return;
+          }
+
+          btn.onclick = function (e) {
+            e.preventDefault();
+            const original = document.querySelector("[vw-access-button]");
+            if (original) original.click();
+          };
+        }
+
+        // OBSERVA MUTA&#199;&#213;ES DO DOM (ESSENCIAL NO PLONE)
+        const observer = new MutationObserver(() => {
+          if (!document.querySelector("[vw]") && !initialized) {
+            loadScript();
+          }
+        });
+
+        observer.observe(document.documentElement, {
+          childList: true,
+          subtree: true,
+        });
+
+        window.addEventListener("load", loadScript);
+      })();
+    </script>
+
+    <title>Portal da Câmara dos Deputados</title>
+  <style type="text/css">@import url(https://www2.camara.leg.br/portal_css/camara_leg_viradadigital/member-cachekey-46bb2e0fc9968a457e63f356c0ff3900.css);</style><style type="text/css">@import url(https://www2.camara.leg.br/portal_css/camara_leg_viradadigital/portlets-cachekey-8a45f49b338591ae0c9c8a91f261dc78.css);</style><style type="text/css" media="screen">@import url(https://www2.camara.leg.br/portal_css/camara_leg_viradadigital/deprecated-cachekey-32595b622b36f2eee9478f07796d4f67.css);</style><style type="text/css" media="screen">@import url(https://www2.camara.leg.br/portal_css/camara_leg_viradadigital/resourceplone.app.discussion.stylesheetsdiscussion-cachekey-5b23f388acd88bdb65020b51a5a278fb.css);</style><style type="text/css">@import url(https://www2.camara.leg.br/portal_css/camara_leg_viradadigital/elements-cachekey-57e40a70bd8192a6f63782abff5c2748.css);</style><style type="text/css" media="all">@import url(https://www2.camara.leg.br/portal_css/camara_leg_viradadigital/ploneCustom-cachekey-7fb44e17264e070fccf4e31d9f2ada1c.css);</style><link rel="stylesheet" type="text/css" href="https://www2.camara.leg.br/portal_css/camara_leg_viradadigital/themecamara.leg.viradadigitalcsslibsbootstrap-datetimepicker.min-cachekey-ab2d257c1b49d2d194633e2ecb4564a2.css" /><link rel="stylesheet" type="text/css" href="https://www.camara.leg.br/tema/global/camara-custom.css" /><link rel="stylesheet" type="text/css" href="https://www2.camara.leg.br/portal_css/camara_leg_viradadigital/++theme++camara.leg.viradadigital/css/all.min.css" /><link rel="apple-touch-icon" sizes="180x180" href="https://www.camara.leg.br/tema/apple-touch-icon.png" /><link rel="icon" type="image/png" sizes="32x32" href="https://www.camara.leg.br/tema/favicon-32x32.png" /><link rel="icon" type="image/png" sizes="16x16" href="https://www.camara.leg.br/tema/favicon-16x16.png" /><link rel="manifest" href="https://www.camara.leg.br/tema/site.webmanifest" /><link rel="mask-icon" href="https://www.camara.leg.br/tema/safari-pinned-tab.svg" color="#009e49" /><link rel="search" href="http://www2.camara.leg.br/busca-geral" title="Buscar neste site" /><script type="text/javascript" src="https://www2.camara.leg.br/portal_javascripts/camara_leg_viradadigital/resourceplone.app.jquery-cachekey-3fa72abea58e1799bd3b0bc237335d45.js"></script><script type="text/javascript" src="https://www2.camara.leg.br/portal_javascripts/camara_leg_viradadigital/styleswitcher-cachekey-9178d2d1bc80488214ac8d40a46c7bdf.js"></script><script type="text/javascript" src="https://www2.camara.leg.br/portal_javascripts/camara_leg_viradadigital/impressaoIframes-cachekey-7de901cf3c737563606c12fa53b7a321.js"></script><script type="text/javascript" src="https://www2.camara.leg.br/portal_javascripts/camara_leg_viradadigital/GoogleAnalyticsTracker.js"></script><script type="text/javascript" src="https://www2.camara.leg.br/portal_javascripts/camara_leg_viradadigital/kss-bbb-cachekey-df10a37e7aa4176c3b122c2e3b0ee128.js"></script><script type="text/javascript" src="https://www2.camara.leg.br/portal_javascripts/camara_leg_viradadigital/inline_validation-cachekey-35d4d75a94cdb17b403a636871dd92cb.js"></script><script type="text/javascript" src="https://www2.camara.leg.br/portal_javascripts/camara_leg_viradadigital/themecamara.leg.viradadigitaljsbootstrap.min-cachekey-c15df71e2ec454087fe4c4eab0ce9d3e.js"></script><script type="text/javascript" src="https://www2.camara.leg.br/portal_javascripts/camara_leg_viradadigital/themecamara.leg.viradadigitaljslibsmoment.min-cachekey-860514b918ea422f7e82fa48125015c4.js"></script><script type="text/javascript" src="https://www2.camara.leg.br/portal_javascripts/camara_leg_viradadigital/themecamara.leg.viradadigitaljslibsmoment-pt-br-cachekey-0aafba4fb000126f1ed0f6701186de00.js"></script><script type="text/javascript" src="https://www2.camara.leg.br/portal_javascripts/camara_leg_viradadigital/themecamara.leg.viradadigitaljslibsbootstrap-datetimepicker.min-cachekey-fac2884b384d9c99236b26d0746facc4.js"></script><script type="text/javascript" src="https://www2.camara.leg.br/portal_javascripts/camara_leg_viradadigital/themecamara.leg.viradadigitaljslibsjquery.maskedinput.min-cachekey-e2f8b2523378532cc132594675b6dc6f.js"></script><script type="text/javascript" src="https://www2.camara.leg.br/portal_javascripts/camara_leg_viradadigital/themecamara.leg.viradadigitaljsacoes-tema-cachekey-a0084cf69f1785571a18f6a58a4986ac.js"></script><script type="text/javascript" src="https://www2.camara.leg.br/portal_javascripts/camara_leg_viradadigital/themecamara.leg.viradadigitaljscorrecoes-bootstrap-tema-cachekey-bd4c19550531506aa59d8b0aa7e8d6c5.js"></script><script type="text/javascript" src="https://www2.camara.leg.br/portal_javascripts/camara_leg_viradadigital/themecamara.leg.viradadigitalviradadigitalvendorjquery.mmenu.all-cachekey-f0e297313e30d6b2b2c2588ef23b5ef2.js"></script><script type="text/javascript" src="https://www2.camara.leg.br/portal_javascripts/camara_leg_viradadigital/themecamara.leg.viradadigitalviradadigitaljsvd_correcoes-cachekey-52a3614631388ad9e07bf35264bc73d5.js"></script><script type="text/javascript" src="https://www2.camara.leg.br/portal_javascripts/camara_leg_viradadigital/themecamara.leg.viradadigitalviradadigitaljsmmenu-correcoes-cachekey-8e45cc1e451978774afbfe2f5f1e95cf.js"></script><script type="text/javascript" src="https://www2.camara.leg.br/portal_javascripts/camara_leg_viradadigital/themecamara.leg.viradadigitalviradadigitaljsselecao-idioma-cachekey-998dbb210e1353a5d7f94011740ee16c.js"></script><meta name="msapplication-TileColor" content="#00a300" /><meta name="msapplication-TileImage" content="https://www.camara.leg.br/tema/mstile-144x144.png" /><meta name="theme-color" content="#009e49" /><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" /><link rel="canonical" href="" /><script type="text/javascript">
+          $("link[rel='canonical']").attr("href", window.location.href);
+        </script>
+
+
+
+
+
+
+
+<title>LEI COMPLEMENTAR Nº 214, DE 16 DE JANEIRO DE 2025 - Veto - Portal Câmara dos Deputados</title>
+
+<meta name="description" content="Publicação de Lei Complementar: Institui o Imposto sobre Bens e Serviços (IBS), a Contribuição Social sobre Bens e Serviços (CBS) e o Imposto Seletivo (IS); cria o Comitê Gestor do IBS e altera a legislação tributária. " />
+
+<!-- CSS do portal-tema: necessário para o botão de compartilhamento -->
+<link rel="stylesheet" type="text/css" href="https://www.camara.leg.br/tema/global/camara-custom.css" />
+
+<!-- Coloque aqui sua referência ao CSS local -->
+<link rel="stylesheet" type="text/css" href="../../../_css/legislacao-v1.css" />
+
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-T3NRZN7V');</script>
+<!-- End Google Tag Manager -->
+
+<!-- Coloque aqui seu javascript -->
+<!-- script type="text/javascript" src="caminho-e-nome-do-arquivo.js"></script -->
+
+</head>
+<body>
+    <header class="l-cabecalho-portal" role="banner" id="portal-header">
+        <ul aria-label="Acesso direto" class="acesso-direto">
+          <!-- Links para saltar diretamente para &#225;reas importantes da p&#225;gina accesskey 2 = conte&#250;do e 3 = navega&#231;&#227;o -->
+          <li>
+            <a class="acesso-direto__link" href="#main-content" accesskey="2">Ir ao conteúdo</a>
+          </li>
+          <li>
+            <a class="acesso-direto__link" href="#main-nav" accesskey="3">Ir à navegação principal</a>
+          </li>
+        </ul>
+
+        <!--[if lte IE 9]>
+          <p class="browserupgrade">
+            Voc&#234; est&#225; usando um navegador <strong>defasado</strong>. Por favor,
+            <a href="https://browsehappy.com/">atualize seu navegador</a> para
+            melhorar sua experi&#234;ncia e sua seguran&#231;a.
+          </p>
+        <![endif]-->
+
+        <div class="nav-top">
+          <div class="container nav-top--container">
+            <a href="https://www2.camara.leg.br" class="logo-camara" accesskey="1"><span class="sr-only">Página inicial</span></a>
+
+            <div class="nav-top__palacio"></div>
+
+            <div class="nav-top__menu-superior">
+              <ul aria-label="Ferramentas de apoio" class="links-apoio">
+                <li class="links-apoio__item links-apoio__item--vlibras">
+                  <a id="meu-botao-vlibras" href="javascript:void(0);">
+                    <span>
+                      <img src="https://www.camara.leg.br/tema/assets/images/ico-vlibras-branco.png" alt="Ativar VLibras" width="28px" height="30px" />
+                    </span>
+                  </a>
+                </li>
+                <li class="links-apoio__item links-apoio__item--acessibilidade">
+                  <a href="https://www2.camara.leg.br/acessibilidade/recursos-de-acessibilidade" accesskey="0">Acessibilidade</a>
+                </li>
+                <li class="links-apoio__item links-apoio__item--faleconosco">
+                  <a href="https://www.camara.leg.br/fale-conosco" accesskey="9">Fale Conosco</a>
+                </li>
+              </ul>
+
+              <ul class="orgaos-parceiros" aria-label="Órgãos parceiros">
+                <li class="orgaos-parceiros__item orgaos-parceiros__item--congresso">
+                  <a href="http://www.congressonacional.leg.br"><span>Congresso</span></a>
+                </li>
+                <li class="orgaos-parceiros__item orgaos-parceiros__item--senado">
+                  <a href="http://www.senado.leg.br"><span>Senado</span></a>
+                </li>
+              </ul>
+
+              <div class="lista-idiomas">
+                <button class="botao-idioma-topo" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" data-offset="4,0">
+                  <span class="botao-idioma-topo__sigla">PT</span>
+                </button>
+
+                <ul class="dropdown-menu dropdown-menu-right l-lista-idiomas" aria-label="Idioma">
+                  <li class="l-lista-idiomas__item">
+                    <a href="https://www2.camara.leg.br/english" class="idioma-topo">
+                      <span class="idioma-topo__bandeira idioma-topo__bandeira--ingles" aria-hidden="true"></span>
+                      <span class="idioma-topo__nome">English</span>
+                      <span class="idioma-topo__sigla">EN</span>
+                    </a>
+                  </li>
+                  <li class="l-lista-idiomas__item">
+                    <a href="https://www2.camara.leg.br/espanol" class="idioma-topo">
+                      <span class="idioma-topo__bandeira idioma-topo__bandeira--espanhol" aria-hidden="true"></span>
+                      <span class="idioma-topo__nome">Español</span>
+                      <span class="idioma-topo__sigla">ES</span>
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="home-camara-menu">
+    <nav class="menu-global navbar navbar-expand-lg" role="navigation" aria-label="Navegação principal" id="menuglobal">
+      <div class="container menu-global--container">
+      
+
+        <a href="https://www.camara.leg.br" class="logo-camara" accesskey="1">
+          <span class="sr-only">Página inicial</span>
+        </a>
+
+      
+        
+        <!-- icone menu -->
+        <button class="menu-global--btnmenu navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarportal" aria-controls="navbarportal" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="menu-global--icon"></span>
+        </button>
+
+        <!-- icone busca -->
+        <button class="menu-global--btnsearch" type="button" data-toggle="collapse" data-target="#buscaportal" aria-controls="buscaportal" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="fa fa-search"></span>
+        </button>
+
+        <div class="navbar-collapse hidden-sm hidden-md hidden-xs" id="navbarportal">
+          <ul title="Navegação Principal" id="main-nav" class="navbar-nav">
+            
+              
+                <li class="nav-item dropdown">
+                  <a href="#" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" class="menu-global__item-temas nav-link dropdown-toggle" id="temas">Assuntos</a>
+
+                  
+                    <ul class="dropdown-menu" aria-labelledby="temas">
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/assuntos/agropecuaria">Agropecuária</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/assuntos/cidades-e-transportes">Cidades e transportes</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/assuntos/ciencia-tecnologia-e-comunicacoes">Ciência, tecnologia e comunicações</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/assuntos/consumidor">Consumidor</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/assuntos/direitos-humanos">Direitos humanos</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/assuntos/economia">Economia</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/assuntos/educacao-cultura-e-esportes">Educação, cultura e esportes</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/assuntos/meio-ambiente-e-energia">Meio ambiente e energia</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/assuntos/politica-e-administracao-publica">Política e administração pública</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/assuntos/relacoes-exteriores">Relações exteriores</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/assuntos/saude">Saúde</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/assuntos/seguranca">Segurança</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/assuntos/trabalho-previdencia-e-assistencia">Trabalho, previdência e assistência</a>
+                      </li>
+                    </ul>
+                  
+                </li>
+              
+            
+            
+              
+                <li class="nav-item dropdown">
+                  <a href="#" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" class="menu-global__item-institucional nav-link dropdown-toggle" id="institucional">Institucional</a>
+
+                  
+                    <ul class="dropdown-menu" aria-labelledby="institucional">
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/agenda">Agenda</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www2.camara.leg.br/transparencia/servicos-ao-cidadao">Serviços</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www2.camara.leg.br/a-camara/estruturaadm/mesa/presidencia">Presidência</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/biblioteca-e-publicacoes/">Biblioteca e publicações</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/escola-da-camara/">Escola da Câmara</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/papel-e-estrutura/">Papel e estrutura</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/historia-e-arquivo/">História e arquivo</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www2.camara.leg.br/a-camara/visiteacamara">Visite</a>
+                      </li>
+                    </ul>
+                  
+                </li>
+              
+            
+            
+              
+                <li class="nav-item dropdown">
+                  <a href="#" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" class="menu-global__item-deputados nav-link dropdown-toggle" id="deputados">Deputados</a>
+
+                  
+                    <ul class="dropdown-menu" aria-labelledby="deputados">
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/deputados/quem-sao">Quem são</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/deputados/liderancas-e-bancadas-partidarias">Lideranças e bancadas</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www2.camara.leg.br/deputados/frentes-e-grupos-parlamentares">Frentes e grupos parlamentares</a>
+                      </li>
+                    </ul>
+                  
+                </li>
+              
+            
+            
+              
+                <li class="nav-item dropdown">
+                  <a href="#" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" class="menu-global__item-atvlegislativa nav-link dropdown-toggle" id="atvlegislativa">Atividade Legislativa</a>
+
+                  
+                    <ul class="dropdown-menu" aria-labelledby="atvlegislativa">
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/busca-portal/proposicoes/pesquisa-simplificada">Propostas legislativas</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/plenario">Plenário</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/comissoes">Comissões</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/sessoesereunioes">Sessões e reuniões</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www2.camara.leg.br/atividade-legislativa/estudos-e-notas-tecnicas">Estudos legislativos</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www2.camara.leg.br/atividade-legislativa/orcamento-da-uniao">Orçamento da União</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/legislacao">Legislação</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/entenda-o-processo-legislativo/">Entenda o processo legislativo</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www2.camara.leg.br/atividade-legislativa/participe">Participe</a>
+                      </li>
+                    </ul>
+                  
+                </li>
+              
+            
+            
+              
+                <li class="nav-item dropdown">
+                  <a href="#" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" class="menu-global__item-comunicacao nav-link dropdown-toggle" id="comunicacao">Comunicação</a>
+
+                  
+                    <ul class="dropdown-menu" aria-labelledby="comunicacao">
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/noticias">Agência Câmara de Notícias</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/radio">Rádio Câmara</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/tv">TV Câmara</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/banco-imagens">Banco de Imagens</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/assessoria-de-imprensa">Assessoria de Imprensa</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/comprove">Comprove uma notícia</a>
+                      </li>
+                    </ul>
+                  
+                </li>
+              
+            
+            
+              
+                <li class="nav-item dropdown">
+                  <a href="#" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" class="menu-global__item-transprestcontas nav-link dropdown-toggle" id="transprestcontas">Transparência e prestação de contas</a>
+
+                  
+                    <ul class="dropdown-menu" aria-labelledby="transprestcontas">
+                      <li class="dropdown-item">
+                        <a href="https://www.camara.leg.br/transparencia/">Transparência</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://www2.camara.leg.br/transparencia/prestacao-de-contas">Prestação de contas</a>
+                      </li>
+                      <li class="dropdown-item">
+                        <a href="https://dadosabertos.camara.leg.br/">Dados abertos</a>
+                      </li>
+                    </ul>
+                  
+                </li>
+              
+            
+          </ul>
+          <div class="outras-opcoes-menu-usuario hidden-md hidden-lg">
+            <ul aria-label="Ferramentas de apoio" class="links-apoio links-apoio--menu-mobile">
+              <li class="links-apoio__item links-apoio__item--acessibilidade">
+                <a href="https://www2.camara.leg.br/acessibilidade/recursos-de-acessibilidade" accesskey="0">Acessibilidade</a>
+              </li>
+              <li class="links-apoio__item links-apoio__item--faleconosco">
+                <a href="https://www.camara.leg.br/fale-conosco" accesskey="9">Fale Conosco</a>
+              </li>
+            </ul>
+          </div>
+          <div class="lista-idiomas hidden-md hidden-lg">
+            <button id="botao-idioma-topo" class="botao-idioma-topo" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" data-offset="4,0">
+                <span class="botao-idioma-topo__sigla">PT</span>
+            </button>
+        
+            <ul class="dropdown-menu-right l-lista-idiomas " aria-label="Idioma">
+                <li class="l-lista-idiomas__item">
+                    <a href="https://www2.camara.leg.br/english" class="idioma-topo">
+                        <span class="idioma-topo__bandeira idioma-topo__bandeira--ingles" aria-hidden="true"></span>
+                        <span class="idioma-topo__nome">English</span>
+                        <span class="idioma-topo__sigla">EN</span>
+                    </a>
+                </li>
+                <li class="l-lista-idiomas__item">
+                    <a href="https://www2.camara.leg.br/espanol" class="idioma-topo">
+                        <span class="idioma-topo__bandeira idioma-topo__bandeira--espanhol" aria-hidden="true"></span>
+                        <span class="idioma-topo__nome">Español</span>
+                        <span class="idioma-topo__sigla">ES</span>            
+                    </a>
+                </li>
+            </ul>
+        </div>
+        </div>
+
+
+        <div class="collapse box-search" id="buscaportal">
+          <form role="search" accesskey="4" class="box-search__busca form-inline" action="https://www.camara.leg.br/busca-geral">
+            <label for="termo" class="sr-only box-search__label">Pesquise no Portal da Câmara</label>
+            <input class="form-control box-search__campo" type="search" name="termo" id="termo" placeholder="Buscar" aria-label="Search" />
+          </form>
+        </div>
+      </div>
+    </nav>
+  </div>
+      </header>
+
+    <div class="breadcrumbs-marcacao">
+        <div class="container">
+            <nav aria-label="Onde estou">
+                <ol class="breadcrumb portal-breadcrumbs">
+                    <li class="breadcrumb-item"><a href="//www.camara.leg.br">Início</a></li>
+                    
+	<li class='breadcrumb-item'><a href='http://www2.camara.gov.br/atividade-legislativa'>Atividade Legislativa</a></li>
+    <li class='breadcrumb-item'><a href='http://www2.camara.gov.br/atividade-legislativa/legislacao'>Legislação</a></li>
+
+                    <li class="breadcrumb-item active" aria-current="page">Esta página</li>
+                </ol>
+            </nav>
+        </div>
+        
+        <div class="container-fluid p-0">
+            <div id="menu-secoes-internas" class="menu-secoes-internass">
+                <div id="portal-mainsection">
+                    <div class="l-identificacao-landing">
+                        <div class="container">
+                            <h1 class="titulo-landing">Legislação</h1>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="marcacao-conteudo-portal" class="conteudo-portal container nopadding-right nopadding-left">
+        <div class="coluna-centro col-md-12">
+
+
+
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-T3NRZN7V"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+<div id="portal-column-content">
+	<div id="portal-content-wrapper">
+		<div class="documentContent">
+			<div id="content">
+	
+				<h2 class="documentFirstHeading">Legislação Informatizada - LEI COMPLEMENTAR Nº 214, DE 16 DE JANEIRO DE 2025 - Veto</h2>
+
+			<div class="g-contexto-compartilhamento g-contexto-compartilhamento--extendido g-impressao">
+				<!-- Elemento propositalmente vazio, preenchido pelo JS de compartilhamento do portal -->
+			</div>
+				<div class="vejaTambem">
+			    	<p>Veja também:</p>
+			    	<ul>
+                                        <li>
+
+
+                                                <a href="leicomplementar-214-16-janeiro-2025-796905-normaatualizada-pl.html" target="_blank">Texto Atualizado <span class="descricaoArquivo">(HTML)</span></a>&nbsp;
+                                                (<a href="leicomplementar-214-16-janeiro-2025-796905-normaatualizada-pl.docx">formato docx</a>)
+                                                &nbsp;
+                                                    (<a href="leicomplementar-214-16-janeiro-2025-796905-normaatualizada-pl.pdf">formato pdf</a>)
+
+                                            
+                                        </li>
+                                            <li>  	
+                                                <a href="leicomplementar-214-16-janeiro-2025-796905-publicacaooriginal-174141-pl.html">Publicação Original</a>
+                                            </li>
+                                            <li>  	
+                                                <a href="leicomplementar-214-16-janeiro-2025-796905-promulgacaodevetos-175784-pl.html">Promulgação de Vetos</a>
+                                            </li>
+                                        <li>
+                                            <a href="http://www.camara.gov.br/sileg/Prop_Detalhe.asp?id=2430143">Proposição Originária</a>
+                                        </li>
+                                    <li>
+                                        <a href="leicomplementar-214-16-janeiro-2025-796905-norma-pl.html">Dados da Norma</a>
+                                    </li>
+                                </ul>
+			    </div>	
+                                
+
+					<h1>LEI COMPLEMENTAR Nº 214, DE 16 DE JANEIRO DE 2025</h1>
+				
+				<div class="textoNorma">
+				
+						<p class="ementa">
+							Institui o Imposto sobre Bens e Serviços (IBS), a Contribuição Social sobre Bens e Serviços (CBS) e o Imposto Seletivo (IS); cria o Comitê Gestor do IBS e altera a legislação tributária. 
+						</p>
+				
+						<div class="texto">
+							<P align=center><STRONG><U>MENSAGEM Nº 88, DE 16 DE JANEIRO DE 2025</U></STRONG></P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; Senhor Presidente do Senado Federal, </P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; Comunico a Vossa Excelência que, nos termos previstos no § 1º do art. 66 da Constituição, decidi vetar parcialmente, por inconstitucionalidade e contrariedade ao interesse público, o Projeto de Lei Complementar nº 68, de 2024, que "Institui o Imposto sobre Bens e Serviços (IBS), a Contribuição Social sobre Bens e Serviços (CBS) e o Imposto Seletivo (IS); cria o Comitê Gestor do IBS e altera a legislação tributária.". </P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; Ouvidos, o Ministério da Fazenda e a Advocacia-Geral da União manifestaram-se pelo veto aos seguintes dispositivos do Projeto de Lei Complementar: </P>
+<P><STRONG><U>Incisos V e X do <I>caput</I> do art. 26 do Projeto de Lei Complementar</U></STRONG> <BR></P>
+<DIR>"V - fundos de investimento, observado o disposto nos §§ 5º a 8º deste artigo;"</DIR>
+<DIR>"X - fundos patrimoniais instituídos nos termos da Lei nº 13.800, de 4 de janeiro de 2019."&nbsp;</DIR>
+<P><STRONG><U>Inciso III do § 1º do art. 26 do Projeto de Lei Complementar</U></STRONG> <BR></P>
+<DIR>"III - os fundos de investimento que realizem operações com bens imóveis, observado o disposto no § 6º deste artigo;"</DIR>
+<P><STRONG><U>§ 5º e § 6º do art. 26 do Projeto de Lei Complementar</U></STRONG><BR><BR></P>
+<DIR>"§ 5º Os Fundos de Investimento Imobiliário (FII) e os Fundos de Investimento nas Cadeias Produtivas do Agronegócio (Fiagro) de que trata a Lei nº 8.668, de 25 de junho de 1993, que realizem operações com bens imóveis são contribuintes do IBS e da CBS no regime regular caso:</DIR>
+<DIR>I - não obedeçam às regras previstas para a isenção do imposto de renda sobre os rendimentos recebidos pelos cotistas, constantes do inciso III do <I>caput</I> e dos §§ 1º a 4º do art. 3º da Lei nº 11.033, de 21 de dezembro de 2004; ou</DIR>
+<DIR>II - estejam sujeitos à tributação aplicável às pessoas jurídicas, nos termos do art. 2º da Lei nº 9.779, de 19 de janeiro de 1999. <BR><BR>§ 6º Não são contribuintes do IBS e da CBS no regime regular os FII e os Fiagro cujas cotas sejam detidas, em mais de 95% (noventa e cinco por cento), por:</DIR>
+<DIR>I - FII ou Fiagro que não seja contribuinte do IBS e da CBS;</DIR>
+<DIR>II - fundo de investimento constituído e destinado, exclusivamente, para acolher recursos de planos de benefícios de previdência complementar e de planos de seguros de pessoas, regulados e fiscalizados pelos órgãos governamentais competentes; e</DIR>
+<DIR>III - entidades de previdência e fundos de pensão no País, regulados e fiscalizados pelos órgãos governamentais competentes."</DIR>
+<P><STRONG><U>§ 8º do art. 26 do Projeto de Lei Complementar</U></STRONG> <BR></P>
+<DIR>"§ 8º Caso, após a data da publicação desta Lei Complementar, venha a ser permitida, conforme regulamentação a ser expedida pelos órgãos governamentais que compõem o Sistema Financeiro Nacional, a realização de novas operações com bens ou com serviços sujeitas à incidência do IBS e da CBS por fundo de investimento, esse fundo será considerado contribuinte no regime regular."</DIR>
+<P><STRONG><U>§ 4º do art. 183 do Projeto de Lei Complementar</U></STRONG> <BR></P>
+<DIR>"§ 4º Não estão sujeitos ao regime especial aplicável aos serviços financeiros as organizações gestoras de fundos patrimoniais constituídas nos termos da Lei nº 13.800, de 4 de janeiro de 2019, cujas receitas, previstas no art. 13 da referida Lei, não sofrem a incidência do IBS e da CBS."</DIR>
+<P><STRONG><U>Razões dos vetos</U></STRONG> <BR></P>
+<DIR>"Em que pese a boa intenção do legislador, não há autorização constitucional para que os fundos de investimentos e os fundos patrimoniais não sejam considerados contribuintes do Imposto sobre Bens e Serviços -IBS e da Contribuição Social sobre Bens e Serviços - CBS. Ao concederem benefícios financeiros ou fiscais em hipóteses não previstas na Constituição, os dispositivos incorrem em violação aos art. 156-A, §1º, X, combinado com o art. 195, § 16, da Constituição. </DIR>
+<DIR>Em face, assim, dos vícios de inconstitucionalidade existentes nos incisos V e X do <I>caput</I>, no inciso III do § 1º, e nos § 5º e § 6º todos do art. 26, o § 8º do art. 26 e o § 4º do art. 183 devem ser vetados por arrastamento."</DIR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; Ouvido, o Ministério da Fazenda manifestou-se pelo veto ao seguinte dispositivo do Projeto de Lei Complementar: </P>
+<P><STRONG><U>§ 2º do art. 36 do Projeto de Lei Complementar</U></STRONG> <BR></P>
+<DIR><BR>"§ 2º Na hipótese de que trata o <I>caput</I> deste artigo, o adquirente será solidariamente responsável pelo valor do IBS e da CBS incidentes sobre a operação." </DIR>
+<P><STRONG><U>Razões do veto</U></STRONG> <BR></P>
+<DIR>"Em que pese a boa intenção do legislador, o dispositivo contraria o interesse público ao gerar insegurança jurídica sobre a responsabilidade tributária e desestimular o mecanismo de recolhimento do Imposto sobre Bens e Serviços -IBS e da Contribuição Social sobre Bens e Serviços - CBS pelo adquirente nas hipóteses em que não esteja disponível o <I>split payment</I>."</DIR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; Ouvido, o Ministério do Desenvolvimento Agrário e Agricultura Familiar manifestou-se pelo veto aos seguintes dispositivos do Projeto de Lei Complementar: </P>
+<P><STRONG><U>§ 4º do art. 138 do Projeto de Lei Complementar</U></STRONG> <BR></P>
+<DIR>§ 4º O regulamento disciplinará a forma de ajuste anual pelo produtor rural não contribuinte do IBS e da CBS diferidos na forma dos §§ 2º e 3º em relação à parcela de sua produção vendida para adquirentes que não têm direito à apropriação dos créditos presumidos estabelecidos pelo art. 168 desta Lei Complementar, hipótese em que não se aplicarão quaisquer acréscimos legais até o prazo de vencimento do ajuste."</DIR><STRONG><U>Inciso II do § 9º do art. 138 do Projeto de Lei Complementar</U></STRONG> <BR><BR>
+<DIR>"II - o recolhimento em razão do ajuste de que trata o § 4º deste artigo."</DIR><STRONG><U>Razões dos vetos</U></STRONG> <BR><BR>
+<DIR>"Em que pese a boa intenção do legislador, o dispositivo contraria o interesse público ao conferir tratamento tributário desigual no diferimento de aquisição de insumos entre produtores rurais contribuintes e não contribuintes, o que prejudicaria o desenvolvimento da agricultura familiar, majoritariamente enquadrada na modalidade não contribuinte."</DIR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; Ouvidos, o Ministério da Fazenda e a Advocacia-Geral da União manifestaram-se pelo veto ao seguinte dispositivo do Projeto de Lei Complementar: </P>
+<P><STRONG><U>Inciso III do § 1º do art. 231 do Projeto de Lei Complementar</U></STRONG> <BR></P>
+<DIR>"III - nas hipóteses em que o importador dos serviços financeiros seja contribuinte que realize as operações de que tratam os incisos I a V do <I>caput</I> do art. 182, será aplicada alíquota zero na importação, sem prejuízo da manutenção do direito de dedução dessas despesas da base de cálculo do IBS e da CBS, segundo o disposto no art. 192 desta Lei Complementar."</DIR><STRONG><U>Razões do veto</U></STRONG> <BR><BR>
+<DIR>"Em que pese a boa intenção do legislador, ao conceder benefício fiscal para instituições financeiras na importação de serviços financeiros, o dispositivo viola o inciso X do § 1º do art. 156-A e o § 16 do art. 195 da Constituição."</DIR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; Ouvido, o Ministério da Fazenda manifestou-se pelo veto aos seguintes dispositivos do Projeto de Lei Complementar: </P>
+<P><STRONG><U>Inciso III do § 1º do art. 252 do Projeto de Lei Complementar</U></STRONG> <BR></P>
+<DIR>"III - demais casos em que se permita a utilização de espaço físico, quando forem realizados a título oneroso."</DIR>
+<P><STRONG><U>Razões do veto <BR></U></STRONG></P>
+<DIR>"Em que pese a boa intenção do legislador, o dispositivo contraria o interesse público ao gerar insegurança jurídica e permitir que operações não equiparáveis a aluguel de bens imóveis sejam alcançadas pela alíquota reduzida prevista no regime tributário específico para essa atividade."</DIR><STRONG><U>§ 2º do art. 332 do Projeto de Lei Complementar</U></STRONG> <BR><BR>
+<DIR>"§ 2º Na impossibilidade de ser utilizado o DTE ou na hipótese de o sujeito passivo não efetuar a consulta no prazo de 10 (dez dias) contados da data registrada no comprovante de entrega no DTE do sujeito passivo, a intimação será feita, sucessivamente: <BR><BR>I - por via postal, com prova de recebimento no domicílio tributário do sujeito passivo, ainda que o recebedor não seja o representante legal do destinatário; <BR><BR>II - por meio de edital, quando infrutífera a tentativa de intimação pelo meio previsto no inciso I deste parágrafo."</DIR><STRONG><U>Art. 334.&nbsp;do Projeto de Lei Complementar</U></STRONG> <BR><BR><BR>
+<DIR>"Art. 334.&nbsp;Considera-se feita a intimação: <BR><BR>I - por meio eletrônico, na data em que o sujeito passivo efetuar consulta no DTE; <BR><BR>II - pessoal, na data da ciência do intimado ou da declaração de recusa lavrada pelo servidor responsável pela intimação; <BR><BR>III - por via postal, na data de recebimento registrada no comprovante de entrega; <BR><BR>IV - por edital, 10 (dez) dias depois de sua publicação. <BR><BR><I>Parágrafo único. </I>Na falta da data registrada no comprovante de entrega, considera-se o recebimento na data disponibilizada na internet pela empresa responsável pela postagem."</DIR><STRONG><U>Razões dos vetos</U></STRONG> <BR><BR>
+<DIR>"Em que pese a boa intenção do legislador, os dispositivos contrariam o interesse público ao preverem a aplicação de métodos de comunicação entre os contribuintes e as administrações tributárias que são mais demorados, menos eficazes e mais custosos do que o instituto do Domicílio Tributário Eletrônico - DTE."</DIR><STRONG><U>Inciso I do <I>caput</I> do art. 413 do Projeto de Lei Complementar <BR></U></STRONG><BR>
+<DIR>"I - as exportações para o exterior de bens e serviços de que trata o art. 409 desta Lei Complementar;"</DIR><STRONG><U>Razões do veto</U></STRONG> <BR><BR>
+<DIR>"Em que pese a boa intenção do legislador, ao instituir cláusula geral de não incidência do imposto seletivo na exportação, o dispositivo viola o inciso VII do § 6º do artigo 153 da Constituição, que determina a incidência tributária sobre bens minerais na extração, independentemente de sua destinação. </DIR>
+<DIR>Registre-se, por oportuno, que a imunidade para exportações para as outras hipóteses do imposto seletivo está garantida pela aplicação direta do regramento constitucional."</DIR><STRONG><U>§ 4º do art. 429 do Projeto de Lei Complementar</U></STRONG> <BR><BR>
+<DIR>"§ 4º A venda, remessa ou comercialização dos bens em desacordo com a determinação do <I>caput</I> e do § 1º deste artigo sujeita o infrator à multa em montante equivalente ao valor do imposto devido na operação."</DIR><STRONG><U>Razões do veto</U></STRONG> <BR><BR>
+<DIR>"Em que pese a boa intenção do legislador, o dispositivo contraria o interesse público uma vez que não há incidência de imposto seletivo sobre operações com tabaco em folhas. A manutenção do dispositivo geraria insegurança jurídica ao prever multa equivalente ao valor de um imposto que não seria cobrado na operação."</DIR><STRONG><U>§ 5º do art. 444 do Projeto de Lei Complementar</U></STRONG> <BR><BR>
+<DIR>"§ 5º No caso do § 4º, será permitida a apropriação de crédito do IBS, exceto em relação aos acréscimos legais, observadas as regras previstas nos arts. 47 a 56 desta Lei Complementar."</DIR><STRONG><U>§ 5º do art. 462 do Projeto de Lei Complementar</U></STRONG> <BR><BR>
+<DIR>"§ 5º No caso do § 4º, será permitida a apropriação de crédito do IBS, exceto em relação aos acréscimos legais, observadas as regras previstas nos arts. 47 a 56 desta Lei Complementar."</DIR><STRONG><U>Razões dos vetos <BR></U></STRONG><BR>
+<DIR>"Em que pese a boa intenção do legislador, os dispositivos contrariam o interesse público, uma vez que permitiriam interpretação equivocada de que seria possível a dupla apropriação de créditos do Imposto sobre Bens e Serviços - IBS no caso de recolhimento do crédito presumido pelo importador da Zona Franca de Manaus e das Áreas de Livres de Comércio, o que geraria insegurança jurídica."</DIR>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; Ouvido, o Ministério da Fazenda manifestou-se pelo veto ao seguinte dispositivo do Projeto de Lei Complementar: </P>
+<P><STRONG><U>Inciso II do § 1º do art. 454 do Projeto de Lei Complementar</U></STRONG> <BR></P>
+<DIR>"II - que obedeçam aos critérios previstos nos incisos I e II do <I>caput</I> e estejam sujeitos à alíquota zero de IPI prevista na Tabela de Incidência do Imposto sobre Produtos Industrializados - Tipi vigente em 31 de dezembro de 2023."</DIR><STRONG><U>Razões do veto <BR></U></STRONG><BR>
+<DIR>"Em que pese a boa intenção do legislador, o disposto no inciso II do § 1º do art. 454 da proposição introduz uma nova hipótese de benefício aos produtos que já estavam com alíquota zero em 31 de dezembro de 2023. Isso significa que se trata de produtos cuja produção na Zona Franca de Manaus já não apresentava vantagem competitiva em relação ao restante do País. Assim, trata-se da concessão de um benefício adicional à Zona Franca de Manaus, o que contraria o mandamento constitucional de manutenção do diferencial competitivo estabelecido no artigo 92-B do Ato das Disposições Constitucionais Transitórias, inserido pela Emenda Constitucional nº 132, de 20 de dezembro de 2023."</DIR>&nbsp;&nbsp;&nbsp;&nbsp; Ouvidos, o Ministério da Fazenda e a Advocacia-Geral da União manifestaram-se pelo veto aos seguintes dispositivos do Projeto de Lei Complementar: <BR><BR><STRONG><U>Art. 494.&nbsp;do Projeto de Lei Complementar</U></STRONG> <BR><BR>
+<DIR>"Art. 494.&nbsp;Em relação aos atos conjuntos do chefe do Poder Executivo da União e do Comitê Gestor do IBS de que tratam os arts. 131, § 2º, 132, § 2º, 134, 138, § 10, 144, §§ 2º e 3º, 145, § 2º, e 146, §§ 3º e 4º, deve-se observar o disposto no § 2º do art. 126 desta Lei Complementar e no art. 14 da Lei Complementar nº 101, de 4 de maio de 2000, quando da revisão prevista no art. 475 desta Lei Complementar."</DIR><STRONG><U>Razões do veto</U></STRONG> <BR><BR>
+<DIR>"Em que pese a boa intenção do legislador, o dispositivo contraria o interesse público, ao prejudicar a atualização tempestiva de dispositivos médicos, dispositivos de acessibilidade próprios para pessoas com deficiência, medicamentos e insumos agropecuários e aquícolas contemplados por tratamento tributário favorecido em razão da sua essencialidade e sua relevância social. A proposição legislativa viola ainda os incisos I e II do § 9º do art. 156-A da Constituição e o § 2º do art. 130 dos Atos das Disposições Constitucionais Transitórias."</DIR>&nbsp;&nbsp;&nbsp;&nbsp; Ouvido, o Ministério da Gestão e da Inovação em Serviços Públicos manifestou-se pelo veto aos seguintes dispositivos do Projeto de Lei Complementar: <BR><BR><STRONG><U>Art. 495.&nbsp;do Projeto de Lei Complementar <BR></U></STRONG><BR>
+<DIR>"Art. 495.&nbsp;Fica recriada, na estrutura básica do Ministério da Fazenda, a Escola de Administração Fazendária - ESAF, com as seguintes competências: <BR><BR>I - integrar a rede de escolas de governo do Poder Executivo federal e o sistema de escolas de governo da União, sob a coordenação da Fundação Escola Nacional de Administração Pública - ENAP; <BR><BR>II - promover a gestão do conhecimento para o desenvolvimento de profissionais dos órgãos que integram o Ministério da Fazenda, visando ao aperfeiçoamento da gestão das finanças públicas e à promoção da cidadania fiscal; <BR><BR>III - promover e intensificar programa de treinamento e capacitação técnico-profissional ajustado às necessidades do Ministério da Fazenda nas suas diversas áreas; <BR><BR>IV - sistematizar e planejar o recrutamento e a seleção de pessoal para preenchimento de cargos e funções do Ministério da Fazenda, inclusive processos de remoção; <BR><BR>V - supervisionar, orientar e controlar os processos seletivos previstos no item anterior; <BR><BR>VI - planejar cursos não integrados no currículo normal da Escola; <BR><BR>VII - executar projetos e atividades de recrutamento, seleção e treinamento que venham a ser convencionados com organismos nacionais e internacionais. <BR><BR>§ 1º A direção-geral da ESAF será exercida por Auditor-Fiscal da Receita Federal do Brasil. <BR><BR>§ 2º O Decreto que dispuser sobre a estrutura básica do Ministério da Fazenda disporá sobre as medidas necessárias ao cumprimento do disposto no <I>caput</I>, inclusive a redistribuição de pessoal necessária ao funcionamento da ESAF, o restabelecimento de seu patrimônio e instalações físicas e dotações orçamentárias."</DIR><STRONG><U>Art. 536.&nbsp;do Projeto de Lei Complementar <BR></U></STRONG><BR>
+<DIR>"Art. 536.&nbsp;A Lei nº 11.907, de 2 de fevereiro de 2009, passa a vigorar com as seguintes alterações: </DIR>
+<DIR>'Art. 292. ...............................................................................................<BR>.............................................................................................................. <BR><BR>V - Escola de Administração Fazendária - ESAF. <BR><BR>§ 1º Os titulares de cargos efetivos remunerados por subsídio em exercício nas escolas de que tratam os incisos II, III e V do <I>caput</I> deste artigo não farão jus à percepção da GAEG. <BR><BR>§ 2º O quantitativo máximo de servidores que poderão perceber a GAEG, independentemente do número de servidores em exercício nas escolas de que tratam os incisos II, III e V do <I>caput</I> e o art. 292-A, será o estabelecido no Anexo CLXI desta Lei. <BR><BR>§ 3º Respeitado o limite global estabelecido no Anexo CLIX desta Lei, poderá haver alteração dos quantitativos fixados para cada nível, mediante ato do Ministro de Estado do Ministério ao qual a escola de que tratam os incisos II, III e V do <I>caput</I> e o art. 292-A, respectivamente, esteja vinculada, desde que haja compensação numérica de um nível para outro e não acarrete aumento de despesa. <BR>..............................................................................................................................'" (NR)</DIR><STRONG><U>Razões dos vetos</U></STRONG> <BR><BR>
+<DIR>"Em que pese a boa intenção do legislador, os dispositivos incorrem em inconstitucionalidade, por violação ao disposto no II do § 1º do art. 61 da Constituição, ao tratarem de organização administrativa de competência do Presidente da República em emenda parlamentar."</DIR>&nbsp;&nbsp;&nbsp;&nbsp; Ouvido, o Ministério da Fazenda manifestou-se pelo veto aos seguintes dispositivos do Projeto de Lei Complementar: <BR><BR><STRONG><U>Art. 517.&nbsp;do Projeto de Lei Complementar na parte em que inclui a alínea "<EM>b</EM>" do inciso XII-A do § 1º do art. 13 da Lei Complementar nº 123, de 14 de dezembro de 2006</U></STRONG> <BR><BR>
+<DIR>"<EM>b) </EM>as operações sujeitas ao regime de substituição tributária no âmbito do IBS e da CBS; </TD></TR></TABLE>"</DIR><STRONG><U>Razões do veto</U></STRONG> <BR><BR>
+<DIR>"Em que pese a boa intenção do legislador, o dispositivo contraria o interesse público, uma vez que não há previsão de cobrança do Imposto sobre Bens e Serviços -IBS e da Contribuição Social sobre Bens e Serviços - CBS pelo regime de substituição tributária no autógrafo do Projeto de Lei Complementar nº 68, de 2024, enviado à sanção."</DIR>
+<P><STRONG><U>Itens 1.4, 1.5, 1.8 e 1.9 do Anexo XI ao Projeto de Lei Complementar</U></STRONG> <BR></P>
+<DIR>" 
+<TABLE class=MsoTableGrid style="BORDER-TOP: medium none; BORDER-RIGHT: medium none; WIDTH: 473.2pt; BORDER-COLLAPSE: collapse; BORDER-BOTTOM: medium none; BORDER-LEFT: medium none; mso-border-alt: solid windowtext .5pt; mso-yfti-tbllook: 1184; mso-padding-alt: 0cm 5.4pt 0cm 5.4pt" cellSpacing=0 cellPadding=0 width=631 border=1>
+<TBODY>
+<TR style="mso-yfti-irow: 0; mso-yfti-firstrow: yes">
+<TD style="BORDER-TOP: windowtext 1pt solid; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 42.3pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: windowtext 1pt solid; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt" vAlign=top width=56>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>.....<?xml:namespace prefix = "o" ns = "urn:schemas-microsoft-com:office:office" /><o:p></o:p></SPAN></P></TD>
+<TD style="BORDER-TOP: windowtext 1pt solid; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 324.6pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: #f0f0f0; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt; mso-border-left-alt: solid windowtext .5pt" vAlign=top width=433>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>..................................................................................<o:p></o:p></SPAN></P></TD>
+<TD style="BORDER-TOP: windowtext 1pt solid; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 106.3pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: #f0f0f0; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt; mso-border-left-alt: solid windowtext .5pt" vAlign=top width=142>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>........................<o:p></o:p></SPAN></P></TD></TR>
+<TR style="mso-yfti-irow: 1">
+<TD style="BORDER-TOP: #f0f0f0; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 42.3pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: windowtext 1pt solid; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt; mso-border-top-alt: solid windowtext .5pt" vAlign=top width=56>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>1.4<o:p></o:p></SPAN></P></TD>
+<TD style="BORDER-TOP: #f0f0f0; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 324.6pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: #f0f0f0; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt; mso-border-left-alt: solid windowtext .5pt; mso-border-top-alt: solid windowtext .5pt" vAlign=top width=433>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>Serviços de segurança não classificados em subposições<o:p></o:p></SPAN></P>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>anteriores<o:p></o:p></SPAN></P></TD>
+<TD style="BORDER-TOP: #f0f0f0; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 106.3pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: #f0f0f0; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt; mso-border-left-alt: solid windowtext .5pt; mso-border-top-alt: solid windowtext .5pt" vAlign=top width=142>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>1.1802.90.00<o:p></o:p></SPAN></P>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'><o:p>&nbsp;</o:p></SPAN></P></TD></TR>
+<TR style="mso-yfti-irow: 2">
+<TD style="BORDER-TOP: #f0f0f0; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 42.3pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: windowtext 1pt solid; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt; mso-border-top-alt: solid windowtext .5pt" vAlign=top width=56>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>1.5<o:p></o:p></SPAN></P></TD>
+<TD style="BORDER-TOP: #f0f0f0; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 324.6pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: #f0f0f0; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt; mso-border-left-alt: solid windowtext .5pt; mso-border-top-alt: solid windowtext .5pt" vAlign=top width=433>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>Serviços de sistemas de segurança<o:p></o:p></SPAN></P></TD>
+<TD style="BORDER-TOP: #f0f0f0; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 106.3pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: #f0f0f0; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt; mso-border-left-alt: solid windowtext .5pt; mso-border-top-alt: solid windowtext .5pt" vAlign=top width=142>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>1.1802.30.00<o:p></o:p></SPAN></P></TD></TR>
+<TR style="mso-yfti-irow: 3">
+<TD style="BORDER-TOP: #f0f0f0; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 42.3pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: windowtext 1pt solid; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt; mso-border-top-alt: solid windowtext .5pt" vAlign=top width=56>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>.....<o:p></o:p></SPAN></P></TD>
+<TD style="BORDER-TOP: #f0f0f0; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 324.6pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: #f0f0f0; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt; mso-border-left-alt: solid windowtext .5pt; mso-border-top-alt: solid windowtext .5pt" vAlign=top width=433>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>...................................................................................<o:p></o:p></SPAN></P></TD>
+<TD style="BORDER-TOP: #f0f0f0; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 106.3pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: #f0f0f0; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt; mso-border-left-alt: solid windowtext .5pt; mso-border-top-alt: solid windowtext .5pt" vAlign=top width=142>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>.........................<o:p></o:p></SPAN></P></TD></TR>
+<TR style="mso-yfti-irow: 4">
+<TD style="BORDER-TOP: #f0f0f0; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 42.3pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: windowtext 1pt solid; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt; mso-border-top-alt: solid windowtext .5pt" vAlign=top width=56>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>1.8<o:p></o:p></SPAN></P></TD>
+<TD style="BORDER-TOP: #f0f0f0; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 324.6pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: #f0f0f0; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt; mso-border-left-alt: solid windowtext .5pt; mso-border-top-alt: solid windowtext .5pt" vAlign=top width=433>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>Seguro para casos de dispositivos com dados pessoais, furtados ou roubados<o:p></o:p></SPAN></P></TD>
+<TD style="BORDER-TOP: #f0f0f0; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 106.3pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: #f0f0f0; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt; mso-border-left-alt: solid windowtext .5pt; mso-border-top-alt: solid windowtext .5pt" vAlign=top width=142>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>pendente de classificação<o:p></o:p></SPAN></P></TD></TR>
+<TR style="mso-yfti-irow: 5">
+<TD style="BORDER-TOP: #f0f0f0; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 42.3pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: windowtext 1pt solid; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt; mso-border-top-alt: solid windowtext .5pt" vAlign=top width=56>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>1.9<o:p></o:p></SPAN></P></TD>
+<TD style="BORDER-TOP: #f0f0f0; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 324.6pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: #f0f0f0; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt; mso-border-left-alt: solid windowtext .5pt; mso-border-top-alt: solid windowtext .5pt" vAlign=top width=433>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>Serviço de proteção e ressarcimento de transações<o:p></o:p></SPAN></P>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>bancárias indevidas, motivadas por furto, roubo ou<o:p></o:p></SPAN></P>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>sequestro<o:p></o:p></SPAN></P></TD>
+<TD style="BORDER-TOP: #f0f0f0; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 106.3pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: #f0f0f0; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt; mso-border-left-alt: solid windowtext .5pt; mso-border-top-alt: solid windowtext .5pt" vAlign=top width=142>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>pendente de <o:p></o:p></SPAN></P>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>classificação<o:p></o:p></SPAN></P>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'><o:p>&nbsp;</o:p></SPAN></P></TD></TR>
+<TR style="mso-yfti-irow: 6; mso-yfti-lastrow: yes">
+<TD style="BORDER-TOP: #f0f0f0; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 42.3pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: windowtext 1pt solid; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt; mso-border-top-alt: solid windowtext .5pt" vAlign=top width=56>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>.....<o:p></o:p></SPAN></P></TD>
+<TD style="BORDER-TOP: #f0f0f0; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 324.6pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: #f0f0f0; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt; mso-border-left-alt: solid windowtext .5pt; mso-border-top-alt: solid windowtext .5pt" vAlign=top width=433>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>.....................................................................................<o:p></o:p></SPAN></P></TD>
+<TD style="BORDER-TOP: #f0f0f0; BORDER-RIGHT: windowtext 1pt solid; WIDTH: 106.3pt; BORDER-BOTTOM: windowtext 1pt solid; PADDING-BOTTOM: 0cm; PADDING-TOP: 0cm; PADDING-LEFT: 5.4pt; BORDER-LEFT: #f0f0f0; PADDING-RIGHT: 5.4pt; BACKGROUND-COLOR: transparent; mso-border-alt: solid windowtext .5pt; mso-border-left-alt: solid windowtext .5pt; mso-border-top-alt: solid windowtext .5pt" vAlign=top width=142>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 0pt; LINE-HEIGHT: normal"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"'>........................<o:p></o:p></SPAN></P></TD></TR></TBODY></TABLE>
+<P class=MsoNormal style="MARGIN: 0cm 0cm 8pt"><SPAN style='FONT-SIZE: 12pt; FONT-FAMILY: "Arial","sans-serif"; LINE-HEIGHT: 107%'>"<o:p></o:p></SPAN></P></DIR>
+<P><U><STRONG>Razões dos vetos <BR></STRONG></U></P>
+<DIR>"Em que pese a boa intenção do legislador, o dispositivo viola o inciso X do § 1º do art. 156-A e o § 16 do art. 195 da Constituição ao permitir que bens e serviços não relacionados à soberania e à segurança nacional, à segurança da informação e à segurança cibernética sejam alcançados pela alíquota reduzida prevista no regime tributário favorecido para essa atividade."</DIR>&nbsp;&nbsp;&nbsp;&nbsp; Essas, Senhor Presidente, são as razões que me conduziram a vetar os dispositivos mencionados do Projeto de Lei Complementar em causa, as quais submeto à elevada apreciação dos Senhores Membros do Congresso Nacional. <BR>
+						</div>
+					    
+				</div>
+				
+
+                                            <br>
+                                            <div class="rodapeTexto">
+                                                <div class="texto">
+                                                    Este texto não substitui o original publicado no Diário Oficial da União - Seção 1 - Edição Extra - B de 16/01/2025
+                                                </div>
+                                            </div>
+
+					<br><br>
+					<div class="publicacoesTI">
+                                            <strong>Publicação:</strong>
+                                            <ul class="listaMarcada">
+                                                    <li>
+                                                        
+                                                        Diário Oficial da União - Seção 1 - Edição Extra - B
+                                                         - 16/1/2025, Página 64 
+                                                        
+                                                        (Veto)
+                                                        
+                                                    </li>
+                                            </ul>
+					</div>
+
+
+
+			</div> <!-- content // -->
+		</div> <!-- documentContent // -->
+	</div> <!-- portal-content-wrapper // -->
+</div> <!-- portal-column-content // --> 
+
+<!-- JS do portal-tema: necessário para o botão de compartilhamento -->
+<script type="text/javascript" src="https://www.camara.leg.br/tema/global/vendor-bundle.js"></script>
+<script type="text/javascript" src="https://www.camara.leg.br/tema/global/camara-bundle.js"></script>
+
+</div></div>
+<div class="js-mmenu-container">
+      
+
+      
+      
+
+      
+
+      <footer role="contentinfo" class="rodape-portal">
+        <!-- Coloque aqui o endere&#231;o e demais informa&#231;&#245;es de assinatura -->
+        <address class="rodape-portal-info">
+          <div class="container">
+            <div class="rodape-portal-info__nome">
+              <p>
+                <strong id="legislaturaRodape">57ª Legislatura - 4ª Sessão Legislativa Ordinária</strong>
+              </p>
+            </div>
+
+            <div class="l-rodape-info">
+              <div class="l-rodape-info__local rodape-portal-info__texto">
+                <span class="rodape-info">Câmara dos Deputados - Palácio do Congresso Nacional - Praça
+                  dos Três Poderes</span>
+                <span class="rodape-info">Brasília - DF - Brasil - CEP 70160-900</span>
+                <span class="rodape-info"><span class="rodape-info__destaque">CNPJ:</span>
+                  00.530.352/0001-59</span>
+              </div>
+
+              <div class="l-rodape-info__telefones rodape-portal-info__texto">
+                <ul class="list-unstyled" aria-label="Número para contato e horário de atendimento">
+                  <li>
+                    <span class="rodape-info__destaque">Disque-Câmara:</span>
+                    <a href="tel:0800-0-619-619">0800-0-619-619</a>, das 8h às
+                    20h
+                  </li>
+                  <li>
+                    <span class="rodape-info__destaque">Atendimento por WhatsApp:</span>
+                    <a href="https://wa.me//556132160000?text">(61) 3216-0000</a>, das 8h às 19h
+                  </li>
+                  <li>
+                    <span class="rodape-info__destaque">Atendimento presencial:</span>
+                    das 9h às 19h
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="acesso-provedor text-right">
+              <a title="Autenticar-se no site" href="/login_form">
+                <i class="fas fa-lock" aria-hidden="true"></i>
+              </a>
+            </div>
+          </div>
+        </address>
+        <!-- Coloque aqui a lista de redes sociais da C&#226;mara -->
+        <div class="rodape-portal-links rodape-portal-links--redes-sociais">
+          <div class="container">
+            <ul class="rodape-portal-links__lista" aria-label="Câmara nas redes sociais">
+              <li class="rodape-portal-links__item">
+                <a href="https://whatsapp.com/channel/0029Va2fexI3gvWgfMs6Fv31" class="rodape-portal-links__link">
+                  <span class="g-social-icon-outline g-social-icon-outline--whatsapp" aria-hidden="true"></span>
+                  <span class="sr-only">Whatsapp</span>
+                </a>
+              </li>
+
+              <li class="rodape-portal-links__item">
+                <a href="https://t.me/CamaradosDeputados" class="rodape-portal-links__link">
+                  <span class="g-social-icon-outline g-social-icon-outline--telegram" aria-hidden="true"></span>
+                  <span class="sr-only">Telegram</span>
+                </a>
+              </li>
+
+              <li class="rodape-portal-links__item">
+                <a href="https://www.facebook.com/camaradeputados" class="rodape-portal-links__link">
+                  <span class="g-social-icon-outline g-social-icon-outline--facebook" aria-hidden="true"></span>
+                  <span class="sr-only">Facebook</span>
+                </a>
+              </li>
+
+              <li class="rodape-portal-links__item">
+                <a href="https://twitter.com/camaradeputados" class="rodape-portal-links__link">
+                  <span class="g-social-icon-outline g-social-icon-outline--twitter" aria-hidden="true"></span>
+                  <span class="sr-only">X</span>
+                </a>
+              </li>
+
+              <li class="rodape-portal-links__item">
+                <a href="https://www.youtube.com/channel/UC-ZkSRh-7UEuwXJQ9UMCFJA" class="rodape-portal-links__link">
+                  <span class="g-social-icon-outline g-social-icon-outline--youtube" aria-hidden="true"></span>
+                  <span class="sr-only">Youtube</span>
+                </a>
+              </li>
+
+              <li class="rodape-portal-links__item">
+                <a href="https://tiktok.com/@camaradosdeputados" class="rodape-portal-links__link">
+                  <span class="g-social-icon-outline g-social-icon-outline--tiktok" aria-hidden="true"></span>
+                  <span class="sr-only">Tiktok</span>
+                </a>
+              </li>
+
+              <li class="rodape-portal-links__item">
+                <a href="https://www.instagram.com/camaradeputados" class="rodape-portal-links__link">
+                  <span class="g-social-icon-outline g-social-icon-outline--instagram" aria-hidden="true"></span>
+                  <span class="sr-only">Instagram</span>
+                </a>
+              </li>
+              <li class="rodape-portal-links__item">
+                  <a href="https://www.threads.com/@camaradosdeputados" class="rodape-portal-links__link">
+                      <span class="g-social-icon-outline g-social-icon-outline--threads" aria-hidden="true"></span>
+                      <span class="sr-only">Threads</span>
+                  </a>
+              </li>
+              <li class="rodape-portal-links__item">
+                  <a href="https://bsky.app/profile/camara.leg.br" class="rodape-portal-links__link">
+                      <span class="g-social-icon-outline g-social-icon-outline--bluesky" aria-hidden="true"></span>
+                      <span class="sr-only">Bluesky</span>
+                  </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <!-- Coloque aqui a lista de links de apoio do rodap&#233; -->
+        <div class="rodape-portal-links rodape-portal-links--apoio">
+          <div class="container">
+            <ul class="rodape-portal-links__lista" aria-label="Links de apoio">
+              <li class="rodape-portal-links__item">
+                <a href="https://www2.camara.leg.br/sobre-o-portal" class="rodape-portal-links__link">Sobre o portal</a>
+              </li>
+
+              <li class="rodape-portal-links__item">
+                <a href="https://www2.camara.leg.br/termo-de-uso-e-politica-de-privacidade" class="rodape-portal-links__link">Termos de uso</a>
+              </li>
+
+              <li class="rodape-portal-links__item">
+                <a href="https://www2.camara.leg.br/aplicativos/" class="rodape-portal-links__link">Aplicativos</a>
+              </li>
+
+              <li class="rodape-portal-links__item">
+                <a href="https://www.camara.leg.br/extranet" class="rodape-portal-links__link">Extranet</a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </footer>
+
+      <div class="barra-carregando" style="display: none">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Carregando</h5>
+            </div>
+            <div class="modal-body">
+              <p>Por favor, aguarde.</p>
+              <div class="progress">
+                <div class="progress-bar progress-bar-striped active" role="progressbar" aria-valuenow="45" aria-valuemin="0" aria-valuemax="100" style="width: 100%">
+                  <span class="sr-only"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>

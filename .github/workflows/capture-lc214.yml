@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: capture-planalto-lc214
+  group: capture-camara-lc214
   cancel-in-progress: false
 
 jobs:
@@ -53,8 +53,51 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Extract literal structural blocks
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --project packages/tax-data python - <<'PY'
+          import json
+          from pathlib import Path
+          from contai_tax_data.federal_law import write_lc214_blocks
+
+          root = Path("var/tax-data/laws/lc214")
+          observation = json.loads((root / "state/lc214-latest-capture.json").read_text(encoding="utf-8"))
+          captured_at = observation["captured_at"].replace(":", "-")
+          observation_path = root / "artifacts/observations" / observation["artifact_sha256"] / f"{captured_at}.json"
+          result = write_lc214_blocks(root / observation["raw_path"], observation_path, root)
+          print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+          PY
+          {
+            echo '### Extração estrutural literal'
+            echo
+            echo 'Blocos publicados como artefato de execução; nenhuma vigência ou efeito jurídico foi inferido.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Capture linked official records
+        shell: bash
+        env:
+          CAPTURE_TIMEOUT: ${{ inputs.timeout || '45' }}
+        run: |
+          set -euo pipefail
+          uv run --project packages/tax-data contai-tax-data capture-lc214-records \
+            --output var/tax-data \
+            --timeout "$CAPTURE_TIMEOUT" \
+            | tee linked-records-result.json
+          {
+            echo '### Publicações oficiais relacionadas'
+            echo
+            echo 'Capturas separadas do texto original, mensagem de veto e promulgação dos vetos.'
+            echo
+            echo '```json'
+            cat linked-records-result.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload source artifacts
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: lc214-capture-${{ github.run_id }}
           path: var/tax-data/laws/lc214/

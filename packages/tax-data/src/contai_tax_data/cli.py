@@ -14,9 +14,10 @@ import psycopg
 from contai_tax_data.cest_candidates import diff_cest_candidate_snapshots, extract_cest_candidate_artifact
 from contai_tax_data.cest_capture import capture_cest
 from contai_tax_data.cest_postgres import stage_cest_candidates
+from contai_tax_data.federal_law import write_lc214_blocks
 from contai_tax_data.ibs_cbs import IBS_CBS_ACCEPT
 from contai_tax_data.ibs_cbs_storage import capture_ibs_cbs
-from contai_tax_data.normative_capture import capture_lc214
+from contai_tax_data.normative_capture import capture_lc214, capture_lc214_official_records
 from contai_tax_data.pipeline import capture_ncm
 from contai_tax_data.postgres import (
     publish_ibs_cbs_release,
@@ -61,6 +62,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     lc214.add_argument("--output", type=Path, default=Path("var/tax-data"))
     lc214.add_argument("--timeout", type=float, default=45.0, dest="timeout_seconds")
+
+    lc214_records = commands.add_parser(
+        "capture-lc214-records", help="captura publicação original, veto e promulgação oficiais da LC 214/2025"
+    )
+    lc214_records.add_argument("--output", type=Path, default=Path("var/tax-data"))
+    lc214_records.add_argument("--timeout", type=float, default=45.0, dest="timeout_seconds")
+
+    lc214_blocks = commands.add_parser(
+        "extract-lc214-blocks", help="extrai blocos estruturais da captura LC 214, sem inferir efeitos jurídicos"
+    )
+    lc214_blocks.add_argument("artifact", type=Path, help="caminho do HTML LC 214 já capturado")
+    lc214_blocks.add_argument("observation", type=Path, help="observação da captura correspondente")
+    lc214_blocks.add_argument("--output", type=Path, default=Path("var/tax-data/laws/lc214"))
 
     cest_candidates = commands.add_parser(
         "extract-cest-candidates", help="extrai linhas candidatas do HTML CEST, sem decidir vigência"
@@ -139,6 +153,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         client = SourceClient(accept="text/html", attempts=1, timeout_seconds=args.timeout_seconds)
         law_result = capture_lc214(args.output / "laws" / "lc214", client=client)
         print(json.dumps(asdict(law_result), ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "capture-lc214-records":
+        client = SourceClient(accept="text/html", attempts=1, timeout_seconds=args.timeout_seconds)
+        records = capture_lc214_official_records(args.output / "laws" / "lc214", client=client)
+        print(
+            json.dumps(
+                {record: asdict(result) for record, result in records.items()}, ensure_ascii=False, sort_keys=True
+            )
+        )
+        return 0
+    if args.command == "extract-lc214-blocks":
+        block_result = write_lc214_blocks(args.artifact, args.observation, args.output)
+        print(json.dumps(block_result, ensure_ascii=False, sort_keys=True))
         return 0
     if args.command == "extract-cest-candidates":
         candidates_result = extract_cest_candidate_artifact(args.artifact, args.output)
