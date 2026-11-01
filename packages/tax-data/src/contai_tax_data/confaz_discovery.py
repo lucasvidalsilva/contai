@@ -13,10 +13,12 @@ import xml.etree.ElementTree as ET
 import zlib
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
+from html.parser import HTMLParser
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 from urllib.parse import urlsplit
 
+from contai_tax_data.cest_capture import CEST_CAPTURE_CONTRACT, CEST_SOURCE_URL
 from contai_tax_data.source import RetrievedArtifact
 
 CONFAZ_SITEMAP_URL = "https://www.confaz.fazenda.gov.br/sitemap.xml.gz"
@@ -83,8 +85,63 @@ class ConfazActCaptureResult:
     raw_path: str
 
 
+@dataclass(frozen=True, slots=True)
+class ConfazAmendmentReference:
+    source_artifact_sha256: str
+    source_url: str
+    reference_index: int
+    relation_label: str
+    anchor_text: str
+    href: str
+    catalog_url: str | None
+    catalog_lastmod: str | None
+    catalog_status: Literal["matched", "relative_unresolved", "not_in_catalog", "non_confaz_url"]
+
+
 class ConfazActSourceClient(Protocol):
     def fetch(self, url: str) -> RetrievedArtifact: ...
+
+
+class _AmendmentLinkParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.paragraphs: list[tuple[str, tuple[tuple[str, str], ...]]] = []
+        self._target_paragraph = False
+        self._paragraph_text: list[str] = []
+        self._links: list[tuple[str, str]] = []
+        self._anchor_href: str | None = None
+        self._anchor_text: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() == "p":
+            classes = next((value for name, value in attrs if name.lower() == "class"), "") or ""
+            if "A2DataPublicacao" in classes.split():
+                self._target_paragraph = True
+                self._paragraph_text = []
+                self._links = []
+        elif self._target_paragraph and tag.lower() == "a":
+            self._anchor_href = next((value for name, value in attrs if name.lower() == "href"), "") or ""
+            self._anchor_text = []
+
+    def handle_endtag(self, tag: str) -> None:
+        lowered = tag.lower()
+        if self._target_paragraph and lowered == "a" and self._anchor_href is not None:
+            self._links.append((self._anchor_href.strip(), " ".join("".join(self._anchor_text).split())))
+            self._anchor_href = None
+            self._anchor_text = []
+        elif self._target_paragraph and lowered == "p":
+            paragraph_text = " ".join("".join(self._paragraph_text).split())
+            if re.match(r"^Alterado\s+pelo\b", paragraph_text, re.IGNORECASE):
+                self.paragraphs.append((paragraph_text, tuple(self._links)))
+            self._target_paragraph = False
+            self._paragraph_text = []
+            self._links = []
+
+    def handle_data(self, data: str) -> None:
+        if self._target_paragraph:
+            self._paragraph_text.append(data)
+            if self._anchor_href is not None:
+                self._anchor_text.append(data)
 
 
 def _json_bytes(value: object) -> bytes:
@@ -247,6 +304,158 @@ def _load_confaz_candidate(catalog_root: Path, source_url: str) -> tuple[ConfazA
     if candidate is None:
         raise ConfazDiscoveryError("URL nÃ£o consta no catÃ¡logo oficial versionado do CONFAZ")
     return candidate, sitemap_hash, snapshot_hash
+
+
+def extract_confaz_amendment_references(
+    artifact_path: Path, observation_path: Path, catalog_root: Path, output_root: Path
+) -> dict[str, object]:
+    """Extrai links explicitamente marcados como alteradores no HTML CEST, sem resolver vigência."""
+    try:
+        observation = json.loads(observation_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ConfazDiscoveryError(f"observação CEST ausente ou inválida: {error}") from None
+    if not isinstance(observation, dict):
+        raise ConfazDiscoveryError("observação CEST precisa ser objeto JSON")
+    raw = artifact_path.read_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
+    if (
+        observation.get("contract_version") != CEST_CAPTURE_CONTRACT
+        or observation.get("requested_url") != CEST_SOURCE_URL
+        or observation.get("final_url") != CEST_SOURCE_URL
+        or observation.get("source_authority") != "CONFAZ"
+        or observation.get("http_status") != 200
+        or observation.get("artifact_sha256") != digest
+        or observation.get("byte_size") != len(raw)
+    ):
+        raise ConfazDiscoveryError("HTML CEST diverge da observação oficial de captura")
+    try:
+        capture_root = observation_path.parents[3]
+        relative = artifact_path.resolve().relative_to(capture_root.resolve()).as_posix()
+    except (IndexError, ValueError):
+        raise ConfazDiscoveryError("HTML CEST está fora da raiz de captura") from None
+    if observation.get("raw_path") != relative:
+        raise ConfazDiscoveryError("caminho do HTML CEST diverge da observação")
+    try:
+        html = raw.decode("utf-8", errors="strict")
+    except UnicodeDecodeError:
+        raise ConfazDiscoveryError("HTML CEST não é UTF-8 válido") from None
+
+    parser = _AmendmentLinkParser()
+    parser.feed(html)
+    if not parser.paragraphs:
+        raise ConfazDiscoveryError("HTML CEST não contém referências 'Alterado pelo' reconhecíveis")
+
+    # Reprocessa uma vez a fonte oficial arquivada e valida os hashes/snapshot antes de
+    # usar a lista de URLs como índice de correspondência.
+    root = catalog_root.resolve()
+    try:
+        capture = json.loads((root / "state" / "confaz-sitemap-latest-capture.json").read_text(encoding="utf-8"))
+        discovery = json.loads((root / "state" / "confaz-discovery-latest.json").read_text(encoding="utf-8"))
+        raw_catalog_path = (root / str(capture["raw_path"])).resolve()
+        raw_catalog_path.relative_to(root)
+        raw_catalog = raw_catalog_path.read_bytes()
+        catalog_digest = hashlib.sha256(raw_catalog).hexdigest()
+        if catalog_digest != capture.get("artifact_sha256"):
+            raise ConfazDiscoveryError("bruto do sitemap diverge do hash do catálogo")
+        observation_at = str(capture.get("captured_at", "")).replace(":", "-")
+        catalog_observation = json.loads(
+            (root / "artifacts" / "observations" / catalog_digest / f"{observation_at}.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        sitemap_candidates = parse_confaz_sitemap(_decompress_sitemap(raw_catalog))
+        snapshot_path = (root / str(discovery["candidates_path"])).resolve()
+        snapshot_path.relative_to(root)
+        snapshot = snapshot_path.read_bytes()
+        snapshot_digest = hashlib.sha256(snapshot).hexdigest()
+        manifest = json.loads(snapshot_path.with_name("manifest.json").read_text(encoding="utf-8"))
+    except (OSError, KeyError, TypeError, json.JSONDecodeError, ValueError) as error:
+        if isinstance(error, ConfazDiscoveryError):
+            raise
+        raise ConfazDiscoveryError(f"catálogo CONFAZ ausente ou inválido: {error}") from None
+    if (
+        not isinstance(capture, dict)
+        or not isinstance(discovery, dict)
+        or not isinstance(manifest, dict)
+        or capture.get("contract_version") != CONFAZ_SITEMAP_CAPTURE_CONTRACT
+        or capture.get("requested_url") != CONFAZ_SITEMAP_URL
+        or capture.get("final_url") != CONFAZ_SITEMAP_URL
+        or capture.get("http_status") != 200
+        or capture.get("source_authority") != "CONFAZ"
+        or catalog_observation != capture
+        or discovery.get("contract_version") != CONFAZ_DISCOVERY_CONTRACT
+        or discovery.get("artifact_sha256") != catalog_digest
+        or snapshot != candidates_jsonl(sitemap_candidates)
+        or discovery.get("snapshot_sha256") != snapshot_digest
+        or discovery.get("candidate_count") != len(sitemap_candidates)
+        or manifest.get("snapshot_sha256") != snapshot_digest
+        or manifest.get("artifact_sha256") != catalog_digest
+    ):
+        raise ConfazDiscoveryError("snapshot do catálogo CONFAZ não reprocessa a partir do bruto oficial")
+    by_url = {candidate.source_url: candidate for candidate in sitemap_candidates}
+    references: list[ConfazAmendmentReference] = []
+    for paragraph, links in parser.paragraphs:
+        for href, anchor in links:
+            parsed = urlsplit(href)
+            if not parsed.scheme and not parsed.netloc:
+                status: Literal["matched", "relative_unresolved", "not_in_catalog", "non_confaz_url"] = (
+                    "relative_unresolved"
+                )
+                candidate = None
+            elif parsed.scheme == "https" and parsed.netloc == "www.confaz.fazenda.gov.br":
+                candidate = by_url.get(href)
+                status = "matched" if candidate else "not_in_catalog"
+            else:
+                candidate = None
+                status = "non_confaz_url"
+            references.append(
+                ConfazAmendmentReference(
+                    source_artifact_sha256=digest,
+                    source_url=CEST_SOURCE_URL,
+                    reference_index=len(references) + 1,
+                    relation_label=paragraph,
+                    anchor_text=anchor,
+                    href=href,
+                    catalog_url=candidate.source_url if candidate else None,
+                    catalog_lastmod=candidate.source_lastmod if candidate else None,
+                    catalog_status=status,
+                )
+            )
+    if not references:
+        raise ConfazDiscoveryError("parágrafos de alteração não contêm links para atos")
+    jsonl = (
+        "\n".join(
+            json.dumps(asdict(row), ensure_ascii=False, sort_keys=True, separators=(",", ":")) for row in references
+        )
+        + "\n"
+    ).encode("utf-8")
+    snapshot_hash = hashlib.sha256(jsonl).hexdigest()
+    release = output_root.resolve() / "references" / digest / "confaz-amendment-reference-v1"
+    snapshot_path = release / "confaz-amendment-references.jsonl"
+    manifest = {
+        "artifact_sha256": digest,
+        "catalog_snapshot_sha256": snapshot_digest,
+        "catalog_sitemap_sha256": catalog_digest,
+        "contract_version": "confaz-amendment-reference-v1",
+        "interpretation_status": "not_performed",
+        "reference_count": len(references),
+        "status_counts": {
+            status: sum(row.catalog_status == status for row in references)
+            for status in ("matched", "relative_unresolved", "not_in_catalog", "non_confaz_url")
+        },
+        "snapshot_sha256": snapshot_hash,
+        "source_url": CEST_SOURCE_URL,
+    }
+    snapshot_created = _write_once(snapshot_path, jsonl)
+    manifest_created = _write_once(release / "manifest.json", _json_bytes(manifest))
+    result = {
+        **manifest,
+        "snapshot_path": snapshot_path.relative_to(output_root.resolve()).as_posix(),
+        "snapshot_created": snapshot_created,
+        "manifest_created": manifest_created,
+    }
+    _write_pointer(output_root.resolve() / "state" / "confaz-amendment-references-latest.json", _json_bytes(result))
+    return result
 
 
 def capture_confaz_act_artifact(

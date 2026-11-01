@@ -10,6 +10,7 @@ from contai_tax_data.cest_candidates import CEST_CANDIDATE_CONTRACT, cest_candid
 from contai_tax_data.confaz_discovery import (
     candidates_jsonl,
     capture_confaz_act,
+    extract_confaz_amendment_references,
     parse_confaz_sitemap,
     write_confaz_discovery,
 )
@@ -175,3 +176,27 @@ def test_versioned_confaz_amendment_reprocesses_from_catalog_without_network(tmp
     assert result.artifact_created
     assert not rerun.artifact_created and not rerun.observation_created
     assert raw == (tmp_path / "reprocessed" / result.raw_path).read_bytes()
+
+
+def test_versioned_confaz_cest_amendment_references_reprocess_without_network(tmp_path: Path) -> None:
+    cest_root = DATA_ROOT / "cest"
+    capture = json.loads((cest_root / "state" / "cest-latest-capture.json").read_text(encoding="utf-8"))
+    artifact_path = cest_root / capture["raw_path"]
+    observation_path = next((cest_root / "artifacts" / "observations" / capture["artifact_sha256"]).glob("*.json"))
+    result = extract_confaz_amendment_references(
+        artifact_path, observation_path, DATA_ROOT / "confaz", tmp_path / "references"
+    )
+    rerun = extract_confaz_amendment_references(
+        artifact_path, observation_path, DATA_ROOT / "confaz", tmp_path / "references"
+    )
+
+    assert result["reference_count"] == 25
+    assert result["status_counts"] == {
+        "matched": 24,
+        "relative_unresolved": 1,
+        "not_in_catalog": 0,
+        "non_confaz_url": 0,
+    }
+    assert result["snapshot_sha256"] == "e3f89a9a0cad0289340611e568adff5ef22f4917841fbcdc8b6a4148e2b8f23a"
+    assert rerun["snapshot_sha256"] == result["snapshot_sha256"]
+    assert not rerun["snapshot_created"] and not rerun["manifest_created"]

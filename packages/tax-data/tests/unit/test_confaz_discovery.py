@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from contai_tax_data.cest_capture import CEST_SOURCE_URL, capture_cest_artifact
 from contai_tax_data.confaz_discovery import (
     CONFAZ_SITEMAP_URL,
     ConfazActCandidate,
@@ -15,6 +16,7 @@ from contai_tax_data.confaz_discovery import (
     capture_confaz_act,
     capture_confaz_act_artifact,
     capture_confaz_sitemap_artifact,
+    extract_confaz_amendment_references,
     parse_confaz_sitemap,
     write_confaz_discovery,
 )
@@ -233,3 +235,78 @@ def test_discovery_rejects_manifest_for_different_source(tmp_path: Path) -> None
 
     with pytest.raises(ConfazDiscoveryError, match="diverge"):
         write_confaz_discovery(tmp_path / "capture" / result.raw_path, observation, tmp_path / "discovery")
+
+
+def test_amendment_references_match_only_catalog_urls_and_leave_relative_unresolved(tmp_path: Path) -> None:
+    catalog_root = tmp_path / "catalog"
+    raw = gzip.compress(_sitemap(), mtime=0)
+    captured = capture_confaz_sitemap_artifact(_artifact(raw), catalog_root)
+    observation = (
+        catalog_root
+        / "artifacts"
+        / "observations"
+        / captured.artifact_sha256
+        / f"{captured.captured_at.replace(':', '-')}.json"
+    )
+    write_confaz_discovery(catalog_root / captured.raw_path, observation, catalog_root)
+
+    amendment_url = "https://www.confaz.fazenda.gov.br/legislacao/convenios/2026/ato-0"
+    html = (
+        '<html><body><p class="A2DataPublicacao">Alterado pelo Conv. ICMS '
+        f'<a href="{amendment_url}">107/26</a> e <a href="resolveuid/abc123">178/24</a></p>'
+        "</body></html>"
+    ).encode()
+    capture_root = tmp_path / "cest"
+    from contai_tax_data.source import RetrievedArtifact
+
+    cest_capture = capture_cest_artifact(
+        RetrievedArtifact(
+            requested_url=CEST_SOURCE_URL,
+            final_url=CEST_SOURCE_URL,
+            status=200,
+            headers={"content-type": "text/html"},
+            body=html,
+            captured_at=datetime(2026, 11, 1, 12, tzinfo=UTC),
+        ),
+        capture_root,
+    )
+    cest_observation = (
+        capture_root
+        / "artifacts"
+        / "observations"
+        / cest_capture.artifact_sha256
+        / f"{cest_capture.captured_at.replace(':', '-')}.json"
+    )
+
+    first = extract_confaz_amendment_references(
+        capture_root / cest_capture.raw_path, cest_observation, catalog_root, tmp_path / "references"
+    )
+    second = extract_confaz_amendment_references(
+        capture_root / cest_capture.raw_path, cest_observation, catalog_root, tmp_path / "references"
+    )
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "references" / first["snapshot_path"]).read_text(encoding="utf-8").splitlines()
+    ]
+
+    assert first["reference_count"] == 2
+    assert first["status_counts"] == {"matched": 1, "relative_unresolved": 1, "not_in_catalog": 0, "non_confaz_url": 0}
+    assert first["snapshot_sha256"] == second["snapshot_sha256"]
+    assert first["snapshot_created"] and first["manifest_created"]
+    assert not second["snapshot_created"] and not second["manifest_created"]
+    assert rows[0]["catalog_status"] == "matched"
+    assert rows[0]["catalog_url"] == amendment_url
+    assert rows[1]["catalog_status"] == "relative_unresolved"
+    assert rows[1]["catalog_url"] is None
+    assert rows[1]["href"] == "resolveuid/abc123"
+    assert first["interpretation_status"] == "not_performed"
+
+
+def test_amendment_reference_extraction_rejects_unarchived_or_unrecognized_source(tmp_path: Path) -> None:
+    artifact = tmp_path / "page.html"
+    artifact.write_bytes(b"<html><body>no amendment references</body></html>")
+    observation = tmp_path / "observation.json"
+    observation.write_text("{}", encoding="utf-8")
+
+    with pytest.raises(ConfazDiscoveryError, match="diverge"):
+        extract_confaz_amendment_references(artifact, observation, tmp_path / "catalog", tmp_path / "out")
