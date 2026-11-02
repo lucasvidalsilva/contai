@@ -21,7 +21,7 @@ from contai_tax_data.confaz_discovery import (
     extract_confaz_amendment_references,
     write_confaz_discovery,
 )
-from contai_tax_data.federal_law import write_lc214_blocks
+from contai_tax_data.federal_law import write_lc214_blocks, write_lc214_record_blocks
 from contai_tax_data.ibs_cbs import IBS_CBS_ACCEPT
 from contai_tax_data.ibs_cbs_storage import capture_ibs_cbs
 from contai_tax_data.normative_capture import capture_lc214, capture_lc214_official_records
@@ -82,6 +82,15 @@ def build_parser() -> argparse.ArgumentParser:
     lc214_blocks.add_argument("artifact", type=Path, help="caminho do HTML LC 214 já capturado")
     lc214_blocks.add_argument("observation", type=Path, help="observação da captura correspondente")
     lc214_blocks.add_argument("--output", type=Path, default=Path("var/tax-data/laws/lc214"))
+
+    lc214_record_blocks = commands.add_parser(
+        "extract-lc214-record-blocks",
+        help="extrai blocos literais de publicação, veto ou promulgação da LC 214",
+    )
+    lc214_record_blocks.add_argument("record_id", choices=("original", "veto", "promulgation"))
+    lc214_record_blocks.add_argument("artifact", type=Path, help="HTML do registro oficial já capturado")
+    lc214_record_blocks.add_argument("observation", type=Path, help="observação da captura correspondente")
+    lc214_record_blocks.add_argument("--output", type=Path, required=True, help="raiz da captura do registro")
 
     confaz_capture = commands.add_parser(
         "capture-confaz-sitemap", help="captura o sitemap oficial do CONFAZ sem interpretar lastmod como vigÃªncia"
@@ -210,6 +219,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     if args.command == "extract-lc214-blocks":
         block_result = write_lc214_blocks(args.artifact, args.observation, args.output)
+        print(json.dumps(block_result, ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "extract-lc214-record-blocks":
+        block_result = write_lc214_record_blocks(args.record_id, args.artifact, args.observation, args.output)
         print(json.dumps(block_result, ensure_ascii=False, sort_keys=True))
         return 0
     if args.command == "capture-confaz-sitemap":

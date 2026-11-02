@@ -12,7 +12,10 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Literal
 
+from contai_tax_data.normative_capture import LC_214_OFFICIAL_RECORDS, OFFICIAL_RECORD_CAPTURE_CONTRACT
+
 LC214_BLOCK_PARSER_ID = "federal-law-block-v3"
+LC214_RECORD_BLOCK_PARSER_ID = "federal-law-record-block-v1"
 MarkerKind = Literal["article", "paragraph", "sole_paragraph", "roman_item", "letter_item", "numbered_item", "text"]
 BlockTag = Literal["p", "td", "th"]
 _ARTICLE = re.compile(r"^Art\.\s*(\d+(?:º|°|o)?(?:-[A-Z])?)(?:\.)?(?=\s|$)", re.IGNORECASE)
@@ -215,6 +218,91 @@ def write_lc214_blocks(raw_path: Path, capture_manifest_path: Path, output_dir: 
         with tempfile.NamedTemporaryFile(
             dir=pointer_path.parent, prefix=f".{pointer_path.name}.", delete=False
         ) as stream:
+            temporary = Path(stream.name)
+            stream.write((json.dumps(pointer, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8"))
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, pointer_path)
+    finally:
+        if temporary and temporary.exists():
+            temporary.unlink()
+    return pointer
+
+
+def write_lc214_record_blocks(
+    record_id: str, raw_path: Path, capture_manifest_path: Path, output_dir: Path
+) -> dict[str, object]:
+    """Reprocessa publicação, veto ou promulgação oficial sem inferir efeitos jurídicos."""
+    expected_record = LC_214_OFFICIAL_RECORDS.get(record_id)
+    if expected_record is None:
+        raise ValueError("identificador de registro oficial LC 214 desconhecido")
+    capture = json.loads(capture_manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(capture, dict):
+        raise ValueError("observação do registro LC 214 precisa ser um objeto JSON")
+    raw = raw_path.read_bytes()
+    source_hash = hashlib.sha256(raw).hexdigest()
+    expected_url, _source_act = expected_record
+    if (
+        capture.get("artifact_sha256") != source_hash
+        or capture.get("contract_version") != OFFICIAL_RECORD_CAPTURE_CONTRACT
+        or capture.get("source_record_id") != record_id
+        or capture.get("requested_url") != expected_url
+        or capture.get("final_url") != expected_url
+        or capture.get("source_authority") != "Câmara dos Deputados - Legislação Informatizada"
+        or capture.get("http_status") != 200
+    ):
+        raise ValueError("bruto do registro LC 214 diverge da observação oficial de captura")
+    headers = capture.get("response_headers")
+    content_type = headers.get("content-type", "") if isinstance(headers, dict) else ""
+    if "text/html" not in content_type.lower() or "charset=utf-8" not in content_type.lower().replace(" ", ""):
+        raise ValueError("Content-Type do registro LC 214 precisa ser HTML UTF-8")
+    try:
+        capture_root = capture_manifest_path.parents[3]
+        raw_relative_path = raw_path.resolve().relative_to(capture_root.resolve()).as_posix()
+    except (IndexError, ValueError):
+        raise ValueError("bruto do registro LC 214 está fora da raiz da captura") from None
+    if capture.get("raw_path") != raw_relative_path:
+        raise ValueError("bruto do registro LC 214 diverge da observação oficial")
+
+    blocks = parse_lc214_blocks(raw)
+    if not 1 <= len(blocks) <= 5_000:
+        raise ValueError(f"contagem inesperada de blocos no registro LC 214: {len(blocks)}")
+    snapshot = blocks_jsonl(blocks)
+    snapshot_hash = hashlib.sha256(snapshot).hexdigest()
+    release_dir = output_dir / "blocks" / source_hash / LC214_RECORD_BLOCK_PARSER_ID
+    snapshot_path = release_dir / "lc214-record-blocks.jsonl"
+    manifest_path = release_dir / "manifest.json"
+    manifest = {
+        "artifact_sha256": source_hash,
+        "block_count": len(blocks),
+        "contract_version": LC214_RECORD_BLOCK_PARSER_ID,
+        "interpretation_status": "not_performed",
+        "marker_counts": {
+            kind: sum(block.marker_kind == kind for block in blocks)
+            for kind in ("article", "paragraph", "sole_paragraph", "roman_item", "letter_item", "numbered_item", "text")
+        },
+        "snapshot_sha256": snapshot_hash,
+        "source_authority": "Câmara dos Deputados - Legislação Informatizada",
+        "source_record_id": record_id,
+        "source_url": expected_url,
+    }
+    for path, content in (
+        (snapshot_path, snapshot),
+        (manifest_path, (json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")),
+    ):
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("xb") as stream:
+                stream.write(content)
+        except FileExistsError:
+            if path.read_bytes() != content:
+                raise RuntimeError(f"colisão no snapshot oficial LC 214 imutável {path}") from None
+    pointer = {**manifest, "snapshot_path": snapshot_path.relative_to(output_dir).as_posix()}
+    pointer_path = output_dir / "state" / "latest-blocks.json"
+    pointer_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=pointer_path.parent, prefix=".latest-blocks.", delete=False) as stream:
             temporary = Path(stream.name)
             stream.write((json.dumps(pointer, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8"))
             stream.flush()

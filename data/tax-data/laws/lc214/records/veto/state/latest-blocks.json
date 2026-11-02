@@ -1,0 +1,20 @@
+{
+  "artifact_sha256": "de0fedef4f5c0725fd9a505675c7651b3c72b605466d37649dd368778ff5dc90",
+  "block_count": 54,
+  "contract_version": "federal-law-record-block-v1",
+  "interpretation_status": "not_performed",
+  "marker_counts": {
+    "article": 0,
+    "letter_item": 0,
+    "numbered_item": 0,
+    "paragraph": 5,
+    "roman_item": 0,
+    "sole_paragraph": 0,
+    "text": 49
+  },
+  "snapshot_path": "blocks/de0fedef4f5c0725fd9a505675c7651b3c72b605466d37649dd368778ff5dc90/federal-law-record-block-v1/lc214-record-blocks.jsonl",
+  "snapshot_sha256": "3b4d551897f3ca7217f69ad099b0c3c4b02bc24317ee0809ec5a624f617e0d7d",
+  "source_authority": "Câmara dos Deputados - Legislação Informatizada",
+  "source_record_id": "veto",
+  "source_url": "https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-veto-174147-pl.html"
+}

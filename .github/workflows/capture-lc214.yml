@@ -95,6 +95,47 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Extract literal blocks from linked official records
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --project packages/tax-data python - <<'PY' | tee linked-record-blocks-result.json
+          import json
+          from pathlib import Path
+
+          from contai_tax_data.federal_law import write_lc214_record_blocks
+
+          records_root = Path("var/tax-data/laws/lc214/records")
+          results = []
+          for record_id in ("original", "veto", "promulgation"):
+              record_root = records_root / record_id
+              observation = json.loads((record_root / "state/latest-capture.json").read_text(encoding="utf-8"))
+              captured_at = observation["captured_at"].replace(":", "-")
+              observation_path = (
+                  record_root
+                  / "artifacts/observations"
+                  / observation["artifact_sha256"]
+                  / f"{captured_at}.json"
+              )
+              result = write_lc214_record_blocks(
+                  record_id,
+                  record_root / observation["raw_path"],
+                  observation_path,
+                  record_root,
+              )
+              results.append(result)
+          print(json.dumps(results, ensure_ascii=False, sort_keys=True))
+          PY
+          {
+            echo '### Blocos literais dos registros relacionados'
+            echo
+            echo 'Publicação, veto e promulgação foram extraídos separadamente; não foram correlacionados por efeito jurídico.'
+            echo
+            echo '```json'
+            cat linked-record-blocks-result.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload source artifacts
         uses: actions/upload-artifact@v4
         if: always()

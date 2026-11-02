@@ -1,0 +1,20 @@
+{
+  "artifact_sha256": "554c50ed37f0aadf63bcf401814409fdfa3541b18a4149f67e0a7b0093638d3b",
+  "block_count": 6,
+  "contract_version": "federal-law-record-block-v1",
+  "interpretation_status": "not_performed",
+  "marker_counts": {
+    "article": 0,
+    "letter_item": 0,
+    "numbered_item": 0,
+    "paragraph": 0,
+    "roman_item": 0,
+    "sole_paragraph": 0,
+    "text": 6
+  },
+  "snapshot_path": "blocks/554c50ed37f0aadf63bcf401814409fdfa3541b18a4149f67e0a7b0093638d3b/federal-law-record-block-v1/lc214-record-blocks.jsonl",
+  "snapshot_sha256": "517fde1b5f907a1e9f7c3e479f8858be2a4ee55d858c28d4e20563339aae52db",
+  "source_authority": "Câmara dos Deputados - Legislação Informatizada",
+  "source_record_id": "promulgation",
+  "source_url": "https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-promulgacaodevetos-175784-pl.html"
+}
