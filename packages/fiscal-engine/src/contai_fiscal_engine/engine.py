@@ -1,0 +1,212 @@
+"""Análise estrutural restrita a NF-e sintética modelo 55."""
+
+from __future__ import annotations
+
+import xml.etree.ElementTree as ET
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
+
+from contai_fiscal_engine.models import Alert, AnalysisReport, NcmCatalogSnapshot
+
+ENGINE_CONTRACT_VERSION = "fiscal-engine-v1"
+_MAX_XML_BYTES = 2_000_000
+_MAX_ITEMS = 5_000
+_NFE_NAMESPACE = "http://www.portalfiscal.inf.br/nfe"
+
+
+class NfeInputError(ValueError):
+    """A entrada não pertence ao subconjunto de XML aceito pelo contrato."""
+
+
+def _tag(element: ET.Element) -> str:
+    return element.tag.rsplit("}", 1)[-1]
+
+
+def _children(element: ET.Element, name: str) -> list[ET.Element]:
+    return [child for child in element if child.tag == f"{{{_NFE_NAMESPACE}}}{name}"]
+
+
+def _one(element: ET.Element, name: str, context: str, *, required: bool = True) -> ET.Element | None:
+    matches = _children(element, name)
+    if len(matches) > 1 or (required and len(matches) != 1):
+        raise NfeInputError(f"estrutura inválida em {context}/{name}")
+    return matches[0] if matches else None
+
+
+def _text(element: ET.Element, name: str, context: str) -> str:
+    child = _one(element, name, context)
+    assert child is not None
+    value = child.text
+    if value is None or not value.strip():
+        raise NfeInputError(f"campo obrigatório vazio: {context}/{name}")
+    return value.strip()
+
+
+def _money(value: str, context: str) -> Decimal:
+    try:
+        amount = Decimal(value)
+    except InvalidOperation as error:
+        raise NfeInputError(f"valor decimal inválido em {context}") from error
+    exponent = amount.as_tuple().exponent
+    if not amount.is_finite() or amount < 0 or not isinstance(exponent, int) or exponent < -2:
+        raise NfeInputError(f"valor monetário fora do contrato em {context}")
+    return amount
+
+
+def _parse_issue_date(ide: ET.Element) -> date:
+    if _one(ide, "dhEmi", "ide", required=False) is not None:
+        date_text = _text(ide, "dhEmi", "ide")
+    else:
+        date_text = _text(ide, "dEmi", "ide")
+    try:
+        if "T" in date_text:
+            return datetime.fromisoformat(date_text.replace("Z", "+00:00")).date()
+        return date.fromisoformat(date_text)
+    except ValueError as error:
+        raise NfeInputError("data de emissão fora do formato ISO esperado") from error
+
+
+def _reject(reason: str, field_path: str | None = None) -> Alert:
+    return Alert("XML-INPUT-001", "1.0.0", "error", "document_rejected", reason, field_path, ())
+
+
+def analyze_nfe(xml_bytes: bytes, catalog: NcmCatalogSnapshot | None = None) -> AnalysisReport:
+    """Analisa XML NF-e em memória; nunca registra nem devolve XML ou identificadores pessoais."""
+    if not xml_bytes or len(xml_bytes) > _MAX_XML_BYTES:
+        return AnalysisReport(
+            ENGINE_CONTRACT_VERSION, "rejected", None, None, None, (_reject("tamanho de XML fora do limite"),)
+        )
+    try:
+        xml_bytes.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return AnalysisReport(
+            ENGINE_CONTRACT_VERSION, "rejected", None, None, None, (_reject("XML deve estar codificado em UTF-8"),)
+        )
+    upper_xml = xml_bytes.upper()
+    if b"<!DOCTYPE" in upper_xml or b"<!ENTITY" in upper_xml:
+        return AnalysisReport(
+            ENGINE_CONTRACT_VERSION, "rejected", None, None, None, (_reject("DOCTYPE e entidades XML não são aceitos"),)
+        )
+    try:
+        root = ET.fromstring(xml_bytes)
+    except (ET.ParseError, ValueError):
+        return AnalysisReport(ENGINE_CONTRACT_VERSION, "rejected", None, None, None, (_reject("XML malformado"),))
+
+    if not isinstance(root.tag, str) or not root.tag.startswith(f"{{{_NFE_NAMESPACE}}}"):
+        return AnalysisReport(
+            ENGINE_CONTRACT_VERSION, "rejected", None, None, None, (_reject("namespace NF-e ausente ou inesperado"),)
+        )
+    if _tag(root) == "nfeProc":
+        nfe = _one(root, "NFe", "nfeProc")
+        assert nfe is not None
+    elif _tag(root) == "NFe":
+        nfe = root
+    else:
+        return AnalysisReport(
+            ENGINE_CONTRACT_VERSION, "rejected", None, None, None, (_reject("raiz não é NFe nem nfeProc"),)
+        )
+
+    try:
+        inf_nfe = _one(nfe, "infNFe", "NFe")
+        assert inf_nfe is not None
+        if inf_nfe.attrib.get("versao") != "4.00":
+            return AnalysisReport(
+                ENGINE_CONTRACT_VERSION,
+                "rejected",
+                None,
+                None,
+                None,
+                (_reject("somente leiaute NF-e 4.00 é aceito", "NFe/infNFe/@versao"),),
+            )
+        ide = _one(inf_nfe, "ide", "infNFe")
+        dets = _children(inf_nfe, "det")
+        total = _one(inf_nfe, "total", "infNFe")
+        assert ide is not None and total is not None
+        model = _text(ide, "mod", "ide")
+        if model != "55":
+            return AnalysisReport(
+                ENGINE_CONTRACT_VERSION,
+                "rejected",
+                model,
+                None,
+                None,
+                (_reject("somente modelo 55 é aceito", "NFe/infNFe/ide/mod"),),
+            )
+        if not dets or len(dets) > _MAX_ITEMS:
+            return AnalysisReport(
+                ENGINE_CONTRACT_VERSION,
+                "rejected",
+                model,
+                None,
+                None,
+                (_reject("quantidade de itens fora do limite", "NFe/infNFe/det"),),
+            )
+        issue_date = _parse_issue_date(ide)
+        total_icms = _one(total, "ICMSTot", "total")
+        assert total_icms is not None
+        declared_product_total = _money(_text(total_icms, "vProd", "ICMSTot"), "ICMSTot/vProd")
+        product_sum = Decimal("0.00")
+        ncm_codes: list[tuple[str, str]] = []
+        for index, det in enumerate(dets, 1):
+            prod = _one(det, "prod", f"det[{index}]")
+            assert prod is not None
+            product_sum += _money(_text(prod, "vProd", f"det[{index}]/prod"), f"det[{index}]/prod/vProd")
+            code = _text(prod, "NCM", f"det[{index}]/prod")
+            if not code.isascii() or not code.isdigit() or len(code) != 8:
+                raise NfeInputError(f"NCM fora do padrão de oito dígitos em det[{index}]/prod/NCM")
+            ncm_codes.append((code, f"NFe/infNFe/det[{index}]/prod/NCM"))
+    except NfeInputError as error:
+        return AnalysisReport(ENGINE_CONTRACT_VERSION, "rejected", "55", None, None, (_reject(str(error)),))
+
+    alerts: list[Alert] = []
+    if product_sum != declared_product_total:
+        alerts.append(
+            Alert(
+                "NFE-TOTAL-PROD-001",
+                "1.0.0",
+                "warning",
+                "product_total_mismatch",
+                "A soma de vProd dos itens diverge de ICMSTot/vProd.",
+                "NFe/infNFe/total/ICMSTot/vProd",
+                (f"soma_dos_itens={product_sum:.2f}", f"total_declarado={declared_product_total:.2f}"),
+            )
+        )
+
+    if catalog is not None:
+        if issue_date != catalog.source_as_of:
+            alerts.append(
+                Alert(
+                    "NCM-COVERAGE-001",
+                    "1.0.0",
+                    "info",
+                    "ncm_coverage_unavailable",
+                    "O snapshot NCM cobre somente source_as_of; nenhuma conclusão temporal foi feita.",
+                    None,
+                    (
+                        f"data_emissao={issue_date.isoformat()}",
+                        f"catalogo_source_as_of={catalog.source_as_of.isoformat()}",
+                        f"catalogo_release_id={catalog.release_id}",
+                    ),
+                )
+            )
+        else:
+            for code, path in ncm_codes:
+                if code not in catalog.code_digits:
+                    alerts.append(
+                        Alert(
+                            "NCM-MEMBERSHIP-001",
+                            "1.0.0",
+                            "warning",
+                            "ncm_not_in_snapshot",
+                            "O código NCM não consta no snapshot fornecido; confirme a classificação na fonte oficial.",
+                            path,
+                            (
+                                f"catalogo_release_id={catalog.release_id}",
+                                f"catalogo_sha256={catalog.snapshot_sha256}",
+                                f"source_as_of={catalog.source_as_of.isoformat()}",
+                            ),
+                        )
+                    )
+    return AnalysisReport(
+        ENGINE_CONTRACT_VERSION, "analyzed", "55", issue_date, catalog.release_id if catalog else None, tuple(alerts)
+    )

@@ -23,22 +23,29 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-          cache-dependency-glob: packages/tax-data/uv.lock
+          cache-dependency-glob: |
+            packages/tax-data/uv.lock
+            packages/fiscal-engine/uv.lock
 
       - name: Install locked Python environment
         run: uv sync --locked --project packages/tax-data
 
+      - name: Check fiscal-engine lockfile
+        run: uv lock --check --project packages/fiscal-engine
+
       - name: Lint
-        run: uv run --project packages/tax-data ruff check packages/tax-data
+        run: uv run --project packages/tax-data ruff check packages/tax-data packages/fiscal-engine
 
       - name: Check formatting
-        run: uv run --project packages/tax-data ruff format --check packages/tax-data
+        run: uv run --project packages/tax-data ruff format --check packages/tax-data packages/fiscal-engine
 
       - name: Type check
-        run: uv run --project packages/tax-data mypy packages/tax-data/src
+        run: uv run --project packages/tax-data mypy packages/tax-data/src packages/fiscal-engine/src
 
       - name: Unit and offline integration tests
-        run: uv run --project packages/tax-data pytest
+        run: |
+          uv run --project packages/tax-data pytest --rootdir packages/tax-data packages/tax-data/tests
+          uv run --project packages/tax-data pytest --rootdir packages/fiscal-engine packages/fiscal-engine/tests
 
       - name: Install locked Node development tools
         run: npm ci --ignore-scripts --no-audit --no-fund
