@@ -76,14 +76,14 @@ Registrar no inventário, para cada fonte: órgão responsável; página/documen
 | Coleta | Cliente HTTP Python com timeout, limites, backoff e identificação do cliente; parsing por formato |
 | Transformação | Python tipado e SQL explícito, sem Spark nem ORM pesado |
 | Dados tabulares | PostgreSQL no Supabase; preservar códigos fiscais como `TEXT` |
-| Originais | Arquivo imutável de captura com checksum e metadados; escolher armazenamento viável antes da primeira carga completa |
+| Originais | Arquivar captura por hash com checksum e metadados; snapshots oficiais públicos de volume moderado ficam versionados em `data/tax-data/` para revisão e reprocessamento |
 | Versionamento | Conteúdo por hash, versões de dataset e vigência fiscal separadas |
 | Automatização | GitHub Actions: CI separado da captura agendada e execução manual |
 | Qualidade | `pytest`, `ruff`, verificação de tipos; testes com fixtures offline |
 | Migrações | SQL versionado e Supabase CLI; implantação remota mediante aprovação |
 | Interface externa | Nenhuma API própria na primeira entrega; publicação somente de visões/datasets aprovados |
 
-**Decisão pendente de aprovação:** armazenamento de originais grandes. Padrão sugerido: Supabase Storage **privado** para blobs brutos (ou alternativa de objetos compatível) e PostgreSQL para metadados, dados normalizados e referências. Não colocar milhares de documentos longos ou binários em tabelas expostas; verificar cotas, custos e políticas antes de provisionar.
+**Decisão adotada:** versionar em `data/tax-data/` os arquivos oficiais públicos pequenos ou moderados, com hash e manifesto. Reservar armazenamento privado de objetos para corpus que exceda limites práticos do Git; escolher provedor, cotas e custos antes de provisionar qualquer serviço.
 
 
 ### Política de decisão e autonomia durante a etapa
@@ -178,7 +178,7 @@ Manter workflows separados:
 - **CI (`ci.yml`):** `uv sync --frozen`, `ruff check`, formatação, tipagem, `pytest` e verificação de migrações/fixtures sem acesso a serviços externos. Permissão `contents: read`.
 - **Captura (`capture.yml`, `capture-tipi.yml`, `capture-ibs-cbs.yml`):** NCM com `workflow_dispatch` e agenda diária após a atualização oficial; TIPI e IBS/CBS com execução manual. IBS/CBS faz apenas um GET por execução, sem agenda ou retry. Concurrency por fonte; sem secrets; execução com tempo máximo; logs sanitizados; resumo do lote; artefatos Actions retidos por 14 dias. Publicação externa só após configuração aprovada.
 
-Evitar workflow que faz `git commit` de todo o corpus a cada execução; o histórico principal ficará no armazenamento de dados e no catálogo de versões. Manter no Git **código, migrações, fixtures pequenas, contratos e documentação**, não volumes brutos massivos.
+Evitar workflow que faz commit automático de todo o corpus a cada execução. O Git pode versionar snapshots oficiais aprovados de volume moderado, contratos, fixtures e documentação; arquivos de grande volume ou atualizações contínuas devem usar armazenamento privado dedicado somente após decisão sobre provedor, cota e custo.
 
 ## 8. Organização sugerida dos arquivos da etapa
 
