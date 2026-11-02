@@ -21,6 +21,12 @@ test("CI executa em pull requests e qualquer push de branch sem secrets", async 
   assert.ok(Object.hasOwn(workflow.on, "push"));
   assert.equal(workflow.on.push, null, "push sem filtro executa CI nas branches de trabalho");
   assert.ok(workflow.jobs["tax-data"].steps.some((step) => step.run?.includes("pytest")));
+  assert.ok(workflow.jobs["tax-data"].steps.some((step) => step.run?.includes("packages/fiscal-engine")));
+  assert.ok(workflow.jobs["tax-data"].steps.some((step) => step.run?.includes("mypy packages/tax-data/src packages/fiscal-engine/src")));
+  assert.ok(workflow.jobs["tax-data"].steps.some((step) => step.run?.includes("uv lock --check --project packages/fiscal-engine")));
+  assert.ok(workflow.jobs["tax-data"].steps.some((step) => step.run?.includes("packages/fiscal-engine")));
+  assert.ok(workflow.jobs["tax-data"].steps.some((step) => step.run?.includes("mypy packages/tax-data/src packages/fiscal-engine/src")));
+  assert.ok(workflow.jobs["tax-data"].steps.some((step) => step.run?.includes("uv lock --check --project packages/fiscal-engine")));
   assert.ok(workflow.jobs["tax-data"].steps.some((step) => step.run?.includes("test:db-integration")));
   assert.ok(workflow.jobs["tax-data"].steps.some((step) => step.run?.includes("test:workflows")));
 });
