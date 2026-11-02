@@ -24,6 +24,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate CONFAZ proxy configuration
+        shell: bash
+        env:
+          PROXY_BRASIL_URL: ${{ secrets.PROXY_BRASIL_URL }}
+          PROXY_BRASIL_CHAVE: ${{ secrets.PROXY_BRASIL_CHAVE }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$PROXY_BRASIL_URL" || -z "$PROXY_BRASIL_CHAVE" ]]; then
+            echo 'Configure os secrets PROXY_BRASIL_URL e PROXY_BRASIL_CHAVE para a captura do CONFAZ.' >&2
+            exit 1
+          fi
+
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
@@ -37,6 +49,8 @@ jobs:
         shell: bash
         env:
           CAPTURE_TIMEOUT: ${{ inputs.timeout || '45' }}
+          PROXY_BRASIL_URL: ${{ secrets.PROXY_BRASIL_URL }}
+          PROXY_BRASIL_CHAVE: ${{ secrets.PROXY_BRASIL_CHAVE }}
         run: |
           set -euo pipefail
           uv run --project packages/tax-data contai-tax-data capture-cest \

@@ -2,10 +2,17 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from urllib.request import Request
 
 import pytest
 
-from contai_tax_data.source import FetchError, SourceClient, TransportResponse
+from contai_tax_data.source import (
+    ConfazProxyTransport,
+    FetchError,
+    SourceClient,
+    TransportResponse,
+    _SameOriginRedirectHandler,
+)
 from contai_tax_data.tipi import TIPI_ACCEPT, TIPI_SOURCE_URL
 
 
@@ -13,10 +20,12 @@ class SequenceTransport:
     def __init__(self, outcomes: list[TransportResponse | Exception]) -> None:
         self.outcomes = outcomes
         self.calls = 0
+        self.last_url = ""
         self.last_headers: Mapping[str, str] = {}
 
     def get(self, url: str, headers: Mapping[str, str], timeout_seconds: float) -> TransportResponse:
-        del url, timeout_seconds
+        del timeout_seconds
+        self.last_url = url
         self.last_headers = headers
         outcome = self.outcomes[self.calls]
         self.calls += 1
@@ -89,3 +98,54 @@ def test_xlsx_source_accept_header_is_explicit() -> None:
 
     assert artifact.body == b"PK"
     assert transport.last_headers["Accept"] == TIPI_ACCEPT
+
+
+def test_confaz_proxy_routes_only_allowlisted_host_and_restores_source_url() -> None:
+    proxy_transport = SequenceTransport(
+        [TransportResponse(200, {"content-type": "text/html"}, b"html", "https://proxy.test/api/buscar")]
+    )
+    direct_transport = SequenceTransport([response(200)])
+    transport = ConfazProxyTransport(
+        "https://proxy.test/api/buscar",
+        "private-key",
+        direct_transport=direct_transport,
+        proxy_transport=proxy_transport,
+    )
+    source_url = "https://www.confaz.fazenda.gov.br/sitemap.xml.gz"
+
+    result = transport.get(source_url, {"Accept": "application/gzip"}, 10)
+    other_result = transport.get("https://example.test/file", {"Accept": "application/json"}, 10)
+
+    assert (
+        proxy_transport.last_url
+        == "https://proxy.test/api/buscar?url=https%3A%2F%2Fwww.confaz.fazenda.gov.br%2Fsitemap.xml.gz"
+    )
+    assert proxy_transport.last_headers["x-chave"] == "private-key"
+    assert result.final_url == source_url
+    assert result.body == b"html"
+    assert direct_transport.last_url == "https://example.test/file"
+    assert other_result.final_url == "https://example.test/final"
+
+
+def test_confaz_proxy_requires_both_settings_only_for_confaz() -> None:
+    transport = ConfazProxyTransport(
+        "https://proxy.test/api/buscar", None, direct_transport=SequenceTransport([response(200)])
+    )
+
+    with pytest.raises(ValueError, match="devem ser configuradas em conjunto"):
+        transport.get("https://www.confaz.fazenda.gov.br/sitemap.xml.gz", {}, 10)
+
+
+def test_confaz_proxy_requires_https_endpoint_without_userinfo_or_query() -> None:
+    transport = ConfazProxyTransport("http://proxy.test/api/buscar?token=unsafe", "private-key")
+
+    with pytest.raises(ValueError, match="URL HTTPS"):
+        transport.get("https://www.confaz.fazenda.gov.br/sitemap.xml.gz", {}, 10)
+
+
+def test_proxy_authentication_redirect_cannot_leave_proxy_origin() -> None:
+    handler = _SameOriginRedirectHandler(("https", "proxy.test", None))
+    request = Request("https://proxy.test/api/buscar")
+
+    assert handler.redirect_request(request, None, 302, "Found", {}, "https://attacker.test/steal") is None
+    assert handler.redirect_request(request, None, 302, "Found", {}, "https://proxy.test/next") is not None

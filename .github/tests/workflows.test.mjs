@@ -63,6 +63,9 @@ test("captura CEST é manual, arquiva fonte bruta e não publica no banco", asyn
   const capture = workflow.jobs["capture-cest"].steps.find((step) => step.run?.includes("capture-cest"));
   assert.ok(capture);
   assert.equal(capture.env.CAPTURE_TIMEOUT, "${{ inputs.timeout || '45' }}");
+  assert.equal(capture.env.PROXY_BRASIL_URL, "${{ secrets.PROXY_BRASIL_URL }}");
+  assert.equal(capture.env.PROXY_BRASIL_CHAVE, "${{ secrets.PROXY_BRASIL_CHAVE }}");
+  assert.ok(workflow.jobs["capture-cest"].steps.some((step) => step.name === "Validate CONFAZ proxy configuration"));
   const extract = workflow.jobs["capture-cest"].steps.find((step) => step.run?.includes("extract-cest-candidates"));
   assert.ok(extract);
   assert.equal(extract["continue-on-error"], true, "uma mudança no HTML não pode impedir o arquivamento bruto");
@@ -101,12 +104,18 @@ test("descoberta CONFAZ é manual, captura o sitemap e não publica atos", async
     "https://www.confaz.fazenda.gov.br/legislacao/convenios/2026/CV107_26",
   );
   assert.ok(workflow.jobs["discover-confaz"].steps.some((step) => step.run?.includes("capture-confaz-sitemap")));
+  const sitemapCapture = workflow.jobs["discover-confaz"].steps.find((step) => step.run?.includes("capture-confaz-sitemap"));
+  assert.equal(sitemapCapture.env.PROXY_BRASIL_URL, "${{ secrets.PROXY_BRASIL_URL }}");
+  assert.equal(sitemapCapture.env.PROXY_BRASIL_CHAVE, "${{ secrets.PROXY_BRASIL_CHAVE }}");
+  assert.ok(workflow.jobs["discover-confaz"].steps.some((step) => step.name === "Validate CONFAZ proxy configuration"));
   const discovery = workflow.jobs["discover-confaz"].steps.find((step) => step.run?.includes("discover-confaz-acts"));
   assert.ok(discovery);
   assert.ok(!Object.hasOwn(discovery, "continue-on-error"), "mudança de schema deve falhar o workflow após preservar a captura");
   const actCapture = workflow.jobs["discover-confaz"].steps.find((step) => step.run?.includes("capture-confaz-act"));
   assert.ok(actCapture);
   assert.equal(actCapture.env.SOURCE_URL, "${{ inputs.source_url }}");
+  assert.equal(actCapture.env.PROXY_BRASIL_URL, "${{ secrets.PROXY_BRASIL_URL }}");
+  assert.equal(actCapture.env.PROXY_BRASIL_CHAVE, "${{ secrets.PROXY_BRASIL_CHAVE }}");
   const extraction = workflow.jobs["discover-confaz"].steps.find((step) => step.run?.includes("extract-confaz-act"));
   assert.ok(extraction);
   assert.equal(extraction.if, "steps.capture-act.outcome == 'success'");
