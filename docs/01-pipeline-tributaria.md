@@ -175,6 +175,8 @@ Para o CONFAZ, verificar a disponibilidade e semântica de `lastmod` do sitemap.
 
 Os workflows `capture-cest.yml` e `capture-confaz-discovery.yml` roteiam apenas URLs HTTPS de `www.confaz.fazenda.gov.br` pelo proxy configurado em `PROXY_BRASIL_URL`, autenticado por `PROXY_BRASIL_CHAVE`. O proxy é transporte e não altera a URL, o corpo ou a validação da fonte. Os dois secrets precisam existir no repositório GitHub; localmente, sem ambos, o cliente acessa a fonte diretamente. O transporte impede redirecionamento da credencial para outra origem.
 
+O projeto Vercel implantável, sem dependências npm ou conexão com Supabase, está em [`infra/confaz-proxy/`](../infra/confaz-proxy/). A função aceita no máximo 4 MiB, restringe a origem ao host CONFAZ, exige `PROXY_CHAVE` e não segue redirecionamentos.
+
 Manter workflows separados:
 
 - **CI (`ci.yml`):** `uv sync --frozen`, `ruff check`, formatação, tipagem, `pytest` e verificação de migrações/fixtures sem acesso a serviços externos. Permissão `contents: read`.
