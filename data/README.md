@@ -25,3 +25,5 @@ As URLs, cabeçalhos permitidos, horários completos, tamanho e status HTTP fica
 ## Atualizações
 
 Execute a captura em `var/tax-data/` para manter a área de trabalho; valide schema, qualidade, hash e diff; depois promova o artefato original, o manifesto e a release aceita para esta pasta em um branch próprio. Não substitua artefatos endereçados por hash nem altere um snapshot existente. A revisão do PR é o ponto de aprovação para persistir uma nova versão no GitHub.
+
+Os 24 atos CONFAZ e os quatro documentos da LC 214 somam 12.966 blocos estruturais versionados. A migration `20261102051034_add_legal_document_block_staging.sql` permite carregá-los em `tax_ingest.legal_block_set` e `tax_ingest.legal_document_block`. Os registros preservam hash do bruto e do snapshot, URL, captura, parser, marcadores literais e estado `not_performed`; não montam histórico de vigência e não são publicados em `tax_public`. A migration foi aplicada somente em `contai-dev`. A carga remota e a segunda passagem foram confirmadas: 28 conjuntos, 12.966 blocos, nenhuma duplicação e todos em `not_performed`; `anon` teve a leitura negada.

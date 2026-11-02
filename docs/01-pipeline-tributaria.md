@@ -264,19 +264,19 @@ Seguir a ordem **IBS/CBS → CEST → TIPI → leis federais → CONFAZ/descober
 
 A etapa 01 só pode ser declarada concluída quando:
 
-- [ ] Fontes incluídas no escopo possuem procedência oficial verificável e registro de limitações.
-- [ ] Inventário técnico compara explicitamente o projeto de referência com as fontes oficiais, incluindo SHA de referência e decisão implementar/adaptar/descartar por comportamento.
-- [ ] Cada domínio declarado como suportado tem extrator, parser, normalização e testes.
-- [ ] Existe recuperação/reprocessamento de versão a partir do artefato original (quando disponível e autorizado).
-- [ ] Cargas são idempotentes, detectam mudanças e preservam histórico.
-- [ ] Vigência jurídica e data de captura não são confundidas.
-- [ ] Dados suspeitos ficam em quarentena; falhas não substituem releases válidas.
-- [ ] Catálogo e SQL de consultas principais têm testes e índices pertinentes.
-- [ ] Permissões de leitura e escrita são demonstradas com teste de acesso negativo.
-- [ ] CI executa testes offline sem secrets de produção.
+- [x] Fontes incluídas no escopo possuem procedência oficial verificável e registro de limitações.
+- [x] Inventário técnico compara explicitamente o projeto de referência com as fontes oficiais, incluindo SHA de referência e decisão implementar/adaptar/descartar por comportamento.
+- [x] Cada domínio declarado como suportado tem extrator, parser, normalização e testes.
+- [x] Existe recuperação/reprocessamento de versão a partir do artefato original (quando disponível e autorizado).
+- [x] Cargas são idempotentes, detectam mudanças e preservam histórico.
+- [x] Vigência jurídica e data de captura não são confundidas.
+- [x] Dados suspeitos ficam em quarentena; falhas não substituem releases válidas.
+- [x] Catálogo e SQL de consultas principais têm testes e índices pertinentes.
+- [x] Permissões de leitura e escrita são demonstradas com teste de acesso negativo.
+- [x] CI executa testes offline sem secrets de produção.
 - [ ] Workflow de captura tem execução/monitoramento confiáveis para as fontes ativadas.
-- [ ] Há documentação para rodar carga inicial, incremental, testes e recuperação de falhas.
-- [ ] README reflete as funcionalidades efetivamente concluídas, sem promessas indevidas.
+- [x] Há documentação para rodar carga inicial, incremental, testes e recuperação de falhas.
+- [x] README reflete as funcionalidades efetivamente concluídas, sem promessas indevidas.
 
 **Regra de relato:** uma etapa parcial deve ser descrita como parcial, com os domínios efetivamente suportados. O marco D com NCM não implica que toda a etapa 01 foi concluída.
 
@@ -454,7 +454,9 @@ Artefatos implementados em `packages/tax-data/`, com banco remoto somente no amb
 11. **Concluído parcialmente — CEST:** captura original, extração estrutural reprocessável, staging privado idempotente, migração em `contai-dev`, snapshots versionados e testes de hash, contrato, acesso negativo e não publicação. Os 1.569 candidatos continuam `unresolved`; classificação histórica/vigência, consultas e publicação dependem de curadoria normativa.
 12. **Concluído parcialmente — LC 214/2025:** captura HTTP 200 da página atualizada, publicação original, veto e promulgação oficiais da Câmara; extração reprodutível da versão atualizada (8.793 blocos) e dos três registros correlatos, com testes de contrato, hash e idempotência; snapshots versionados em `data/`. Marcadores estruturais não montam histórico por dispositivo nem concluem vigência; não há release jurídica ou carga no banco.
 
-13. **Concluído parcialmente — descoberta CONFAZ:** captura oficial e versionada do sitemap GZip; catálogo reprocessável de 11.369 URLs de convênios, ajustes e protocolos com `lastmod` literal; captura e extração estrutural de 24 atos citados por remissões do Convênio 142/18 (2.776 blocos, proveniência e hashes revalidados em testes offline); um `resolveuid` segue sem resolver. Não varre o acervo, não afirma cobertura jurídica e não faz staging/publicação.
+13. **Concluído parcialmente — descoberta CONFAZ:** captura oficial e versionada do sitemap GZip; catálogo reprocessável de 11.369 URLs de convênios, ajustes e protocolos com `lastmod` literal; captura e extração estrutural de 24 atos citados por remissões do Convênio 142/18 (2.776 blocos, proveniência e hashes revalidados em testes offline); um `resolveuid` segue sem resolver. A descoberta não varre nem publica o acervo; os 24 atos já arquivados foram carregados separadamente no staging privado conforme o item 14.
+
+14. **Concluído — staging estrutural legal em `contai-dev`:** migration `20261102051034_add_legal_document_block_staging.sql` e comando `stage-legal-blocks` validam proveniência, hashes, parser reproduzível e conteúdo antes de persistir 12.966 blocos dos 24 atos CONFAZ e quatro registros LC 214 em `tax_ingest`. Carga idempotente; RLS/grants limitados à role de ingestão; sem interpretação, tabela/view pública ou promoção automática. Aplicada em `contai-dev`; carga remota de 28 conjuntos/12.966 blocos e segunda passagem idempotente confirmadas; leitura `anon` negada. A SQL foi aplicada sobre TLS e registrada no histórico Supabase porque a CLI não tinha token de gerenciamento nesta sessão.
 
 Comandos locais padronizados:
 
@@ -474,12 +476,16 @@ uv --cache-dir .uv-cache run --project packages/tax-data contai-tax-data publish
 uv --cache-dir .uv-cache run --project packages/tax-data contai-tax-data stage-cest-candidates <snapshot.jsonl> <observacao.json> --capture-root var/tax-data/cest
 uv --cache-dir .uv-cache run --project packages/tax-data contai-tax-data capture-confaz-sitemap --output var/tax-data --timeout 45
 uv --cache-dir .uv-cache run --project packages/tax-data contai-tax-data discover-confaz-acts <sitemap.xml.gz> <observacao.json> --output var/tax-data/confaz
+uv --cache-dir .uv-cache run --env-file .env --project packages/tax-data contai-tax-data stage-legal-blocks <bruto.html> <observacao.json> <snapshot.jsonl> --capture-root <raiz-da-fonte>
 npm ci --cache .npm-cache
 npm run test:db-schema
 npm run test:db-integration
 ```
 
-Os comandos `stage-tipi`, `publish-tipi`, `stage-ibs-cbs`, `publish-ibs-cbs` e `stage-cest-candidates` exigem conexão PostgreSQL explícita e migrations correspondentes no banco de destino. As migrations e publicações descritas acima foram executadas somente no projeto de desenvolvimento `contai-dev`; nenhuma carga foi feita em produção.
+**Recuperação e atualização:** preserve o bruto, a observação, o manifesto e o snapshot endereçados por hash em `data/tax-data/`; falhas de staging revertem a transação e podem ser reexecutadas com os mesmos argumentos. Repetir uma captura sem mudança mantém o mesmo hash/conjunto; conteúdo alterado cria novo artefato/conjunto e não sobrescreve o anterior. Para novas migrations, use `supabase db push --dry-run` antes da aplicação no projeto de desenvolvimento; valide depois o histórico, RLS/grants e contagens. Em falha de validação, não edite ponteiros nem marque o lote como publicado: corrija o parser/contrato, gere novo snapshot e passe novamente pelos testes e revisão em branch/PR.
+
+
+Para CONFAZ use `--capture-root data/tax-data/confaz`; para LC 214 use `data/tax-data/laws/lc214` (atualizada) ou `data/tax-data/laws/lc214/records/<registro>`. O comando `stage-legal-blocks` também exige conexão PostgreSQL explícita e a migration legal aplicada no banco de destino; grava somente em `tax_ingest`, sem interpretação ou publicação. Os comandos `stage-tipi`, `publish-tipi`, `stage-ibs-cbs`, `publish-ibs-cbs` e `stage-cest-candidates` exigem conexão PostgreSQL explícita e migrations correspondentes no banco de destino. As migrations e publicações descritas acima foram executadas somente no projeto de desenvolvimento `contai-dev`; nenhuma carga foi feita em produção.
 
 As migrations TIPI, IBS/CBS e CEST foram aplicadas no projeto `contai-dev`; TIPI e IBS/CBS foram staged e publicadas, enquanto CEST permanece somente em `tax_ingest`. Consulta remota confirmou 15.157 linhas NCM, 11.103 TIPI, 18 CST, 173 cClassTrib e 4.728 vínculos. O papel `anon` consegue ler as views correntes e não consegue ler `tax_ingest`; os advisories Supabase não retornaram alertas.
 

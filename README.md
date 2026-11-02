@@ -114,7 +114,7 @@ A execução será incremental. **Cada etapa precisa de critérios de aceite e t
 
 | Etapa | Objetivo | Situação |
 | --- | --- | --- |
-| **01 · Pipeline tributária** | Extrair e versionar dados oficiais com Python, GitHub Actions e Supabase PostgreSQL. | **Snapshots oficiais iniciais estão versionados em `data/tax-data/`. NCM, TIPI e IBS/CBS publicadas no Supabase `contai-dev`; CEST staged como candidata privada `unresolved`; CONFAZ mantém o catálogo oficial e 24 atos citados pelo CEST com extração estrutural, sem interpretação jurídica; LC 214 capturada e extraída em blocos estruturais. O Planalto encerrou a conexão automatizada. A etapa segue parcial; publicações ficam restritas ao projeto dev.** |
+| **01 · Pipeline tributária** | Extrair e versionar dados oficiais com Python, GitHub Actions e Supabase PostgreSQL. | **Snapshots oficiais iniciais estão versionados em `data/tax-data/`. NCM, TIPI e IBS/CBS publicadas no Supabase `contai-dev`; CEST staged como candidata privada `unresolved`; CONFAZ mantém o catálogo oficial e 24 atos citados pelo CEST com extração estrutural, sem interpretação jurídica; LC 214 capturada e extraída em blocos estruturais; os blocos legais da LC 214 e dos 24 atos CONFAZ estão staged privadamente no contai-dev (12.966 registros), sem interpretação ou publicação. O Planalto encerrou a conexão automatizada. A etapa segue parcial; publicações ficam restritas ao projeto dev.** |
 | **02 · Motor fiscal** | Validar documentos sintéticos de NF-e e produzir alertas fundamentados. | Planejada |
 | **03 · Aplicativo** | Criar a experiência de conferência local com Tauri. | Planejada |
 | **04 · Landing page** | Apresentar o produto e disponibilizar a distribuição. | Planejada |

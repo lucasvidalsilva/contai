@@ -24,6 +24,7 @@ from contai_tax_data.confaz_discovery import (
 from contai_tax_data.federal_law import write_lc214_blocks, write_lc214_record_blocks
 from contai_tax_data.ibs_cbs import IBS_CBS_ACCEPT
 from contai_tax_data.ibs_cbs_storage import capture_ibs_cbs
+from contai_tax_data.legal_blocks_postgres import stage_legal_blocks
 from contai_tax_data.normative_capture import capture_lc214, capture_lc214_official_records
 from contai_tax_data.pipeline import capture_ncm
 from contai_tax_data.postgres import (
@@ -149,6 +150,15 @@ def build_parser() -> argparse.ArgumentParser:
     stage_cest.add_argument("observation", type=Path, help="manifesto da captura bruta correspondente")
     stage_cest.add_argument("--capture-root", type=Path, default=Path("var/tax-data/cest"))
 
+    stage_legal = commands.add_parser(
+        "stage-legal-blocks",
+        help="revalida e persiste blocos estruturais oficiais no schema privado, sem publicar nem interpretar vigência",
+    )
+    stage_legal.add_argument("artifact", type=Path, help="artefato HTML oficial arquivado")
+    stage_legal.add_argument("observation", type=Path, help="observação imutável da captura")
+    stage_legal.add_argument("snapshot", type=Path, help="snapshot JSONL estrutural já extraído")
+    stage_legal.add_argument("--capture-root", type=Path, required=True, help="raiz que contém o bruto capturado")
+
     stage_ibs_cbs = commands.add_parser(
         "stage-ibs-cbs", help="revalida e persiste uma release IBS/CBS no schema privado"
     )
@@ -264,6 +274,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 connection, args.candidates, args.observation, args.capture_root
             )
         print(json.dumps(asdict(cest_candidate_result), ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "stage-legal-blocks":
+        with psycopg.connect(_database_url(), sslmode="require") as connection:
+            legal_block_result = stage_legal_blocks(
+                connection,
+                args.artifact,
+                args.observation,
+                args.snapshot.with_name("manifest.json"),
+                args.snapshot,
+                args.capture_root,
+            )
+        print(json.dumps(asdict(legal_block_result), ensure_ascii=False, sort_keys=True))
         return 0
     if args.command == "stage-ibs-cbs":
         with psycopg.connect(_database_url(), sslmode="require") as connection:
