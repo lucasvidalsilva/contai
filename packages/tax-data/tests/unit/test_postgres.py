@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from contai_tax_data.ncm import QualityPolicy
-from contai_tax_data.postgres import load_local_ncm_release
+from contai_tax_data.postgres import load_local_ncm_capture, load_local_ncm_release
 from contai_tax_data.source import NCM_SOURCE_URL, RetrievedArtifact
 from contai_tax_data.storage import ingest_ncm_artifact
 
@@ -48,3 +48,28 @@ def test_load_local_release_rejects_tampered_snapshot(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="hash do snapshot"):
         load_local_ncm_release(tmp_path, release_id)
+
+
+def test_load_local_capture_accepts_metadata_only_source_update(tmp_path: Path) -> None:
+    initial = _create_release(tmp_path)
+    body = SAMPLE.read_bytes().replace(b"Vigente em 30/10/2026", b"Vigente em 31/10/2026")
+    recapture = ingest_ncm_artifact(
+        RetrievedArtifact(
+            requested_url=NCM_SOURCE_URL,
+            final_url=f"{NCM_SOURCE_URL}?perfil=PUBLICO",
+            status=200,
+            headers={"content-type": "application/json"},
+            body=body,
+            captured_at=datetime(2026, 10, 31, 23, 31, 50, tzinfo=UTC),
+        ),
+        tmp_path,
+        quality_policy=SAMPLE_POLICY,
+    )
+
+    local = load_local_ncm_capture(tmp_path, recapture.artifact_sha256, quality_policy=SAMPLE_POLICY)
+
+    assert recapture.artifact_created is True
+    assert recapture.release_created is False
+    assert recapture.release_id == initial
+    assert local.release_id == initial
+    assert local.dataset.source_as_of.isoformat() == "2026-10-31"

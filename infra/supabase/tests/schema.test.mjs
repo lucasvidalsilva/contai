@@ -50,6 +50,27 @@ test("migração cria fronteira privada e leitura pública governada", async () 
     },
   ]);
 
+  const legalBlockPrivileges = await db.query(`
+    select
+      has_table_privilege('tax_ingest_writer', 'tax_ingest.legal_block_set', 'select') as writer_can_read_set,
+      has_table_privilege('tax_ingest_writer', 'tax_ingest.legal_document_block', 'insert') as writer_can_insert_block,
+      has_table_privilege('anon', 'tax_ingest.legal_block_set', 'select') as anon_can_read_set,
+      has_table_privilege('authenticated', 'tax_ingest.legal_document_block', 'select') as authenticated_can_read_block
+  `);
+  assert.deepEqual(legalBlockPrivileges.rows, [
+    {
+      writer_can_read_set: true,
+      writer_can_insert_block: true,
+      anon_can_read_set: false,
+      authenticated_can_read_block: false,
+    },
+  ]);
+  const legalTables = await db.query(`
+    select table_name from information_schema.tables
+    where table_schema = 'tax_public' and table_name like 'legal_%'
+  `);
+  assert.deepEqual(legalTables.rows, []);
+
   const cestPublicTables = await db.query(`
     select table_name from information_schema.tables
     where table_schema = 'tax_public' and table_name like 'cest%'

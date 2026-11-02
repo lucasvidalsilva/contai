@@ -1,0 +1,20 @@
+{
+  "artifact_sha256": "e62dbe85a2b60d623474934e24ee069a20275b450a1420d82387539252bc6554",
+  "byte_size": 186713,
+  "captured_at": "2026-11-01T22:54:54.542986Z",
+  "contract_version": "confaz-html-act-raw-v1",
+  "discovery_sha256": "106e8b06f556eebf7e98b4ee94814fe93199299d4eb5e35eebaa2b4b9215c7e0",
+  "final_url": "https://www.confaz.fazenda.gov.br/legislacao/convenios/2022/CV066_22",
+  "http_status": 200,
+  "raw_path": "acts/da545a6be9d3d906dfdfc92cfa191cc9bec882bbbe913525c5f13de7e7ffa52d/artifacts/sha256/e6/e62dbe85a2b60d623474934e24ee069a20275b450a1420d82387539252bc6554.html",
+  "requested_url": "https://www.confaz.fazenda.gov.br/legislacao/convenios/2022/CV066_22",
+  "response_headers": {
+    "cache-control": "max-age=0, s-maxage=0, must-revalidate",
+    "content-type": "text/html;charset=utf-8"
+  },
+  "sitemap_sha256": "78b3451ba25e4ab2d818c673e22764fda27712362d7d15820741108b76ce404d",
+  "source_authority": "CONFAZ",
+  "source_lastmod": "2024-09-30T11:48:01-03:00",
+  "source_section": "convenios",
+  "status": "captured_raw_uninterpreted"
+}

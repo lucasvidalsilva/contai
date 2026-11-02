@@ -14,11 +14,21 @@ import psycopg
 from contai_tax_data.cest_candidates import diff_cest_candidate_snapshots, extract_cest_candidate_artifact
 from contai_tax_data.cest_capture import capture_cest
 from contai_tax_data.cest_postgres import stage_cest_candidates
+from contai_tax_data.confaz_act import extract_confaz_act_artifact
+from contai_tax_data.confaz_discovery import (
+    capture_confaz_act,
+    capture_confaz_sitemap,
+    extract_confaz_amendment_references,
+    write_confaz_discovery,
+)
+from contai_tax_data.federal_law import write_lc214_blocks, write_lc214_record_blocks
 from contai_tax_data.ibs_cbs import IBS_CBS_ACCEPT
 from contai_tax_data.ibs_cbs_storage import capture_ibs_cbs
-from contai_tax_data.normative_capture import capture_lc214
+from contai_tax_data.legal_blocks_postgres import stage_legal_blocks
+from contai_tax_data.normative_capture import capture_lc214, capture_lc214_official_records
 from contai_tax_data.pipeline import capture_ncm
 from contai_tax_data.postgres import (
+    catalog_ncm_capture,
     publish_ibs_cbs_release,
     publish_ncm_release,
     publish_tipi_release,
@@ -56,9 +66,71 @@ def build_parser() -> argparse.ArgumentParser:
     cest.add_argument("--output", type=Path, default=Path("var/tax-data"))
     cest.add_argument("--timeout", type=float, default=45.0, dest="timeout_seconds")
 
-    lc214 = commands.add_parser("capture-lc214", help="captura e arquiva o texto oficial compilado da LC 214/2025")
+    lc214 = commands.add_parser(
+        "capture-lc214", help="captura e arquiva a página oficial atualizada da LC 214/2025 (Câmara)"
+    )
     lc214.add_argument("--output", type=Path, default=Path("var/tax-data"))
     lc214.add_argument("--timeout", type=float, default=45.0, dest="timeout_seconds")
+
+    lc214_records = commands.add_parser(
+        "capture-lc214-records", help="captura publicação original, veto e promulgação oficiais da LC 214/2025"
+    )
+    lc214_records.add_argument("--output", type=Path, default=Path("var/tax-data"))
+    lc214_records.add_argument("--timeout", type=float, default=45.0, dest="timeout_seconds")
+
+    lc214_blocks = commands.add_parser(
+        "extract-lc214-blocks", help="extrai blocos estruturais da captura LC 214, sem inferir efeitos jurídicos"
+    )
+    lc214_blocks.add_argument("artifact", type=Path, help="caminho do HTML LC 214 já capturado")
+    lc214_blocks.add_argument("observation", type=Path, help="observação da captura correspondente")
+    lc214_blocks.add_argument("--output", type=Path, default=Path("var/tax-data/laws/lc214"))
+
+    lc214_record_blocks = commands.add_parser(
+        "extract-lc214-record-blocks",
+        help="extrai blocos literais de publicação, veto ou promulgação da LC 214",
+    )
+    lc214_record_blocks.add_argument("record_id", choices=("original", "veto", "promulgation"))
+    lc214_record_blocks.add_argument("artifact", type=Path, help="HTML do registro oficial já capturado")
+    lc214_record_blocks.add_argument("observation", type=Path, help="observação da captura correspondente")
+    lc214_record_blocks.add_argument("--output", type=Path, required=True, help="raiz da captura do registro")
+
+    confaz_capture = commands.add_parser(
+        "capture-confaz-sitemap", help="captura o sitemap oficial do CONFAZ sem interpretar lastmod como vigÃªncia"
+    )
+    confaz_capture.add_argument("--output", type=Path, default=Path("var/tax-data"))
+    confaz_capture.add_argument("--timeout", type=float, default=45.0, dest="timeout_seconds")
+
+    confaz_discovery = commands.add_parser(
+        "discover-confaz-acts", help="lista URLs candidatas do sitemap arquivado sem interpretar efeitos jurÃ­dicos"
+    )
+    confaz_discovery.add_argument("artifact", type=Path, help="sitemap GZip jÃ¡ capturado")
+    confaz_discovery.add_argument("observation", type=Path, help="observaÃ§Ã£o da captura correspondente")
+    confaz_discovery.add_argument("--output", type=Path, default=Path("var/tax-data/confaz"))
+
+    confaz_act = commands.add_parser(
+        "capture-confaz-act", help="captura um ato HTML listado no catÃ¡logo CONFAZ versionado"
+    )
+    confaz_act.add_argument("url", help="URL oficial que precisa constar no snapshot revalidado do sitemap")
+    confaz_act.add_argument("--catalog-root", type=Path, default=Path("data/tax-data/confaz"))
+    confaz_act.add_argument("--output", type=Path, default=Path("var/tax-data/confaz"))
+    confaz_act.add_argument("--timeout", type=float, default=45.0, dest="timeout_seconds")
+
+    confaz_references = commands.add_parser(
+        "extract-confaz-amendment-references",
+        help="extrai remissões de alteração explícitas do HTML CEST sem interpretar efeitos jurídicos",
+    )
+    confaz_references.add_argument("artifact", type=Path, help="HTML CEST bruto já capturado")
+    confaz_references.add_argument("observation", type=Path, help="observação imutável da captura CEST")
+    confaz_references.add_argument("--catalog-root", type=Path, default=Path("data/tax-data/confaz"))
+    confaz_references.add_argument("--output", type=Path, default=Path("data/tax-data/confaz"))
+
+    confaz_extract = commands.add_parser(
+        "extract-confaz-act",
+        help="extrai campos literais e blocos estruturais de um ato CONFAZ capturado",
+    )
+    confaz_extract.add_argument("artifact", type=Path, help="HTML do ato CONFAZ já arquivado")
+    confaz_extract.add_argument("observation", type=Path, help="observação imutável da captura do ato")
+    confaz_extract.add_argument("--output", type=Path, default=Path("data/tax-data/confaz"))
 
     cest_candidates = commands.add_parser(
         "extract-cest-candidates", help="extrai linhas candidatas do HTML CEST, sem decidir vigência"
@@ -79,6 +151,15 @@ def build_parser() -> argparse.ArgumentParser:
     stage_cest.add_argument("observation", type=Path, help="manifesto da captura bruta correspondente")
     stage_cest.add_argument("--capture-root", type=Path, default=Path("var/tax-data/cest"))
 
+    stage_legal = commands.add_parser(
+        "stage-legal-blocks",
+        help="revalida e persiste blocos estruturais oficiais no schema privado, sem publicar nem interpretar vigência",
+    )
+    stage_legal.add_argument("artifact", type=Path, help="artefato HTML oficial arquivado")
+    stage_legal.add_argument("observation", type=Path, help="observação imutável da captura")
+    stage_legal.add_argument("snapshot", type=Path, help="snapshot JSONL estrutural já extraído")
+    stage_legal.add_argument("--capture-root", type=Path, required=True, help="raiz que contém o bruto capturado")
+
     stage_ibs_cbs = commands.add_parser(
         "stage-ibs-cbs", help="revalida e persiste uma release IBS/CBS no schema privado"
     )
@@ -94,6 +175,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     publish = commands.add_parser("publish-ncm", help="publica atomicamente uma release NCM ja persistida")
     publish.add_argument("release_id")
+
+    catalog_ncm = commands.add_parser(
+        "catalog-ncm-artifact", help="cataloga captura validada sem release semantica nova"
+    )
+    catalog_ncm.add_argument("--output", type=Path, default=Path("var/tax-data"))
+    catalog_ncm.add_argument("--artifact-sha256", required=True)
 
     stage_tipi = commands.add_parser("stage-tipi", help="persiste uma release TIPI local no schema privado")
     stage_tipi.add_argument("--output", type=Path, default=Path("var/tax-data"))
@@ -138,6 +225,48 @@ def main(argv: Sequence[str] | None = None) -> int:
         law_result = capture_lc214(args.output / "laws" / "lc214", client=client)
         print(json.dumps(asdict(law_result), ensure_ascii=False, sort_keys=True))
         return 0
+    if args.command == "capture-lc214-records":
+        client = SourceClient(accept="text/html", attempts=1, timeout_seconds=args.timeout_seconds)
+        records = capture_lc214_official_records(args.output / "laws" / "lc214", client=client)
+        print(
+            json.dumps(
+                {record: asdict(result) for record, result in records.items()}, ensure_ascii=False, sort_keys=True
+            )
+        )
+        return 0
+    if args.command == "extract-lc214-blocks":
+        block_result = write_lc214_blocks(args.artifact, args.observation, args.output)
+        print(json.dumps(block_result, ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "extract-lc214-record-blocks":
+        block_result = write_lc214_record_blocks(args.record_id, args.artifact, args.observation, args.output)
+        print(json.dumps(block_result, ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "capture-confaz-sitemap":
+        client = SourceClient(
+            accept="application/gzip, application/octet-stream", attempts=2, timeout_seconds=args.timeout_seconds
+        )
+        sitemap_result = capture_confaz_sitemap(args.output / "confaz", client=client)
+        print(json.dumps(asdict(sitemap_result), ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "discover-confaz-acts":
+        discovery_result = write_confaz_discovery(args.artifact, args.observation, args.output)
+        print(json.dumps(discovery_result, ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "capture-confaz-act":
+        client = SourceClient(accept="text/html", attempts=1, timeout_seconds=args.timeout_seconds)
+        act_result = capture_confaz_act(args.url, args.catalog_root, args.output, client=client)
+        print(json.dumps(asdict(act_result), ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "extract-confaz-amendment-references":
+        result = extract_confaz_amendment_references(args.artifact, args.observation, args.catalog_root, args.output)
+        print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "extract-confaz-act":
+        result = extract_confaz_act_artifact(args.artifact, args.observation, args.output)
+        print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+        return 0
+
     if args.command == "extract-cest-candidates":
         candidates_result = extract_cest_candidate_artifact(args.artifact, args.output)
         print(json.dumps(asdict(candidates_result), ensure_ascii=False, sort_keys=True))
@@ -153,6 +282,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         print(json.dumps(asdict(cest_candidate_result), ensure_ascii=False, sort_keys=True))
         return 0
+    if args.command == "stage-legal-blocks":
+        with psycopg.connect(_database_url(), sslmode="require") as connection:
+            legal_block_result = stage_legal_blocks(
+                connection,
+                args.artifact,
+                args.observation,
+                args.snapshot.with_name("manifest.json"),
+                args.snapshot,
+                args.capture_root,
+            )
+        print(json.dumps(asdict(legal_block_result), ensure_ascii=False, sort_keys=True))
+        return 0
     if args.command == "stage-ibs-cbs":
         with psycopg.connect(_database_url(), sslmode="require") as connection:
             stage_result = stage_ibs_cbs_release(connection, args.output / "ibs-cbs", args.release_id)
@@ -167,6 +308,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         with psycopg.connect(_database_url(), sslmode="require") as connection:
             stage_result = stage_ncm_release(connection, args.output, args.release_id)
         print(json.dumps(database_result_as_dict(stage_result), ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "catalog-ncm-artifact":
+        with psycopg.connect(_database_url(), sslmode="require") as connection:
+            catalog_result = catalog_ncm_capture(connection, args.output, args.artifact_sha256)
+        print(json.dumps(database_result_as_dict(catalog_result), ensure_ascii=False, sort_keys=True))
         return 0
     if args.command == "publish-ncm":
         with psycopg.connect(_database_url(), sslmode="require") as connection:

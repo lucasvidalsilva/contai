@@ -1,0 +1,18 @@
+{
+  "artifact_sha256": "dc87a43e7a4c293bc3c47817754286438db33a7c42472eb0400258e7707a2bde",
+  "block_count": 8793,
+  "contract_version": "federal-law-block-v3",
+  "interpretation_status": "not_performed",
+  "marker_counts": {
+    "article": 581,
+    "letter_item": 647,
+    "numbered_item": 51,
+    "paragraph": 1119,
+    "roman_item": 1862,
+    "sole_paragraph": 112,
+    "text": 4421
+  },
+  "snapshot_sha256": "d6eed7211094e706b096c6fd909ea8579c98de5208c17f13ea746397f3c24dea",
+  "source_authority": "Câmara dos Deputados - Legislação Informatizada",
+  "source_url": "https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-normaatualizada-pl.html"
+}

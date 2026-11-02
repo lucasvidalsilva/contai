@@ -1,0 +1,20 @@
+{
+  "artifact_sha256": "30dc3028af6e2806731f526a0ccb7f9498190fdd4b0809154d5d70fac4433f72",
+  "byte_size": 173852,
+  "captured_at": "2026-11-01T22:54:18.884915Z",
+  "contract_version": "confaz-html-act-raw-v1",
+  "discovery_sha256": "106e8b06f556eebf7e98b4ee94814fe93199299d4eb5e35eebaa2b4b9215c7e0",
+  "final_url": "https://www.confaz.fazenda.gov.br/legislacao/convenios/2019/CV165_19",
+  "http_status": 200,
+  "raw_path": "acts/bf193dedc59aa0c69595666bea162647aa61556813f65f281d9956e6cb1ef323/artifacts/sha256/30/30dc3028af6e2806731f526a0ccb7f9498190fdd4b0809154d5d70fac4433f72.html",
+  "requested_url": "https://www.confaz.fazenda.gov.br/legislacao/convenios/2019/CV165_19",
+  "response_headers": {
+    "cache-control": "max-age=0, s-maxage=0, must-revalidate",
+    "content-type": "text/html;charset=utf-8"
+  },
+  "sitemap_sha256": "78b3451ba25e4ab2d818c673e22764fda27712362d7d15820741108b76ce404d",
+  "source_authority": "CONFAZ",
+  "source_lastmod": "2020-02-05T10:29:22-02:00",
+  "source_section": "convenios",
+  "status": "captured_raw_uninterpreted"
+}

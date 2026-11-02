@@ -1,0 +1,19 @@
+{
+  "artifact_sha256": "7c2bdc9db1ceb11faaa56b2582e77e5a1bcb66e51cd62b6de0f155a78359c45a",
+  "catalog_sitemap_sha256": "78b3451ba25e4ab2d818c673e22764fda27712362d7d15820741108b76ce404d",
+  "catalog_snapshot_sha256": "106e8b06f556eebf7e98b4ee94814fe93199299d4eb5e35eebaa2b4b9215c7e0",
+  "contract_version": "confaz-amendment-reference-v1",
+  "interpretation_status": "not_performed",
+  "manifest_created": false,
+  "reference_count": 25,
+  "snapshot_created": false,
+  "snapshot_path": "references/7c2bdc9db1ceb11faaa56b2582e77e5a1bcb66e51cd62b6de0f155a78359c45a/confaz-amendment-reference-v1/confaz-amendment-references.jsonl",
+  "snapshot_sha256": "e3f89a9a0cad0289340611e568adff5ef22f4917841fbcdc8b6a4148e2b8f23a",
+  "source_url": "https://www.confaz.fazenda.gov.br/legislacao/convenios/2018/CV142_18",
+  "status_counts": {
+    "matched": 24,
+    "non_confaz_url": 0,
+    "not_in_catalog": 0,
+    "relative_unresolved": 1
+  }
+}

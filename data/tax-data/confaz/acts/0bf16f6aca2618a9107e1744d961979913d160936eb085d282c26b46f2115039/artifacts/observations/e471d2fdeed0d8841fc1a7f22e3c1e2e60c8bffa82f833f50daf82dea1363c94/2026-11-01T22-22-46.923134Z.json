@@ -1,0 +1,20 @@
+{
+  "artifact_sha256": "e471d2fdeed0d8841fc1a7f22e3c1e2e60c8bffa82f833f50daf82dea1363c94",
+  "byte_size": 114390,
+  "captured_at": "2026-11-01T22:22:46.923134Z",
+  "contract_version": "confaz-html-act-raw-v1",
+  "discovery_sha256": "106e8b06f556eebf7e98b4ee94814fe93199299d4eb5e35eebaa2b4b9215c7e0",
+  "final_url": "https://www.confaz.fazenda.gov.br/legislacao/convenios/2026/CV107_26",
+  "http_status": 200,
+  "raw_path": "acts/0bf16f6aca2618a9107e1744d961979913d160936eb085d282c26b46f2115039/artifacts/sha256/e4/e471d2fdeed0d8841fc1a7f22e3c1e2e60c8bffa82f833f50daf82dea1363c94.html",
+  "requested_url": "https://www.confaz.fazenda.gov.br/legislacao/convenios/2026/CV107_26",
+  "response_headers": {
+    "cache-control": "max-age=0, s-maxage=0, must-revalidate",
+    "content-type": "text/html;charset=utf-8"
+  },
+  "sitemap_sha256": "78b3451ba25e4ab2d818c673e22764fda27712362d7d15820741108b76ce404d",
+  "source_authority": "CONFAZ",
+  "source_lastmod": "2026-09-30T12:11:51-03:00",
+  "source_section": "convenios",
+  "status": "captured_raw_uninterpreted"
+}

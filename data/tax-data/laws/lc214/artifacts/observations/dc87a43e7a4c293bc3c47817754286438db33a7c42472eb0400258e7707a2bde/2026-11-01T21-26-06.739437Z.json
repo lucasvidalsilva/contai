@@ -1,0 +1,17 @@
+{
+  "artifact_sha256": "dc87a43e7a4c293bc3c47817754286438db33a7c42472eb0400258e7707a2bde",
+  "byte_size": 3095827,
+  "captured_at": "2026-11-01T21:26:06.739437Z",
+  "contract_version": "camara-law-current-raw-v1",
+  "final_url": "https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-normaatualizada-pl.html",
+  "http_status": 200,
+  "raw_path": "artifacts/sha256/dc/dc87a43e7a4c293bc3c47817754286438db33a7c42472eb0400258e7707a2bde.html",
+  "requested_url": "https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-normaatualizada-pl.html",
+  "response_headers": {
+    "content-length": "3095827",
+    "content-type": "text/html; charset=UTF-8"
+  },
+  "source_act": "Lei Complementar 214/2025 (texto atualizado pela Câmara dos Deputados)",
+  "source_authority": "Câmara dos Deputados - Legislação Informatizada",
+  "status": "captured_raw_unparsed"
+}

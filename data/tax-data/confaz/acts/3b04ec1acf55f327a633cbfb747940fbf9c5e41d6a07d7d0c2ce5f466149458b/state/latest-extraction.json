@@ -1,0 +1,20 @@
+{
+  "act_title": "CONVÊNIO ICMS Nº 195, DE 9 DE DEZEMBRO DE 2022",
+  "artifact_sha256": "90819a5f6d290a77244117ce6b5a3444dab8268ed92bec9bba72834b13538886",
+  "block_count": 266,
+  "contract_version": "confaz-act-block-v2",
+  "description_text": "Altera o Convênio ICMS nº 142/18, que dispõe sobre os regimes de substituição tributária e de antecipação de recolhimento do Imposto sobre Operações relativas à Circulação de Mercadorias e sobre Prestações de Serviço de Transporte Interestadual e de Comunicação (ICMS) com encerramento de tributação, relativos ao imposto devido pelas operações subsequentes.",
+  "discovery_sha256": "106e8b06f556eebf7e98b4ee94814fe93199299d4eb5e35eebaa2b4b9215c7e0",
+  "interpretation_status": "not_performed",
+  "lastmod_semantics": "source_metadata_only_not_legal_effective_date",
+  "manifest_created": true,
+  "publication_text": "Publicado no DOU de 14.12.22 pelo Despacho 77/22.\nAlterado pelo Conv. ICMS 202/22, 52/23.\nPublicado no DOU de 16.12.22\nPublicado no DOU de 21.12.22",
+  "sitemap_sha256": "78b3451ba25e4ab2d818c673e22764fda27712362d7d15820741108b76ce404d",
+  "snapshot_created": true,
+  "snapshot_path": "acts/3b04ec1acf55f327a633cbfb747940fbf9c5e41d6a07d7d0c2ce5f466149458b/extractions/90819a5f6d290a77244117ce6b5a3444dab8268ed92bec9bba72834b13538886/confaz-act-block-v2/confaz-act-blocks.jsonl",
+  "snapshot_sha256": "850378586a18e6be681040f3166a502f492849b43cbb162c8d30be81d55016fe",
+  "source_authority": "CONFAZ",
+  "source_lastmod": "2023-05-23T09:53:01-03:00",
+  "source_url": "https://www.confaz.fazenda.gov.br/legislacao/convenios/2022/CV195_22",
+  "summary_text": "Altera o Convênio ICMS nº 142/18, que dispõe sobre os regimes de substituição tributária e de antecipação de recolhimento do Imposto sobre Operações relativas à Circulação de Mercadorias e sobre Prestações de Serviço de Transporte Interestadual e de Comunicação (ICMS) com encerramento de tributação, relativos ao imposto devido pelas operações subsequentes."
+}
