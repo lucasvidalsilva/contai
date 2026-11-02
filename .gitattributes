@@ -1,2 +1,3 @@
 data/tax-data/** -text whitespace=-blank-at-eol,-space-before-tab
 data/tax-data/**/*.html -diff
+packages/fiscal-engine/src/contai_fiscal_engine/schemas/**/*.xsd -text whitespace=-blank-at-eol,-space-before-tab

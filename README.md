@@ -115,7 +115,7 @@ A execução será incremental. **Cada etapa precisa de critérios de aceite e t
 | Etapa | Objetivo | Situação |
 | --- | --- | --- |
 | **01 · Pipeline tributária** | Extrair, validar, versionar e publicar dados oficiais com Python, GitHub Actions e Supabase PostgreSQL. | **Marco operacional concluído no Supabase `contai-dev`: NCM, TIPI e IBS/CBS publicados; CEST privado como candidato `unresolved`; LC 214 e 24 atos CONFAZ em staging estrutural (12.966 blocos), sem interpretação jurídica. As seis fontes tiveram execução verde; o índice local guarda somente esses runs. O Supabase mantém proveniência e 34 payloads brutos verificados. Um artefato NCM histórico possui metadado, mas não bytes arquivados. A cobertura jurídica continua parcial, e não houve carga em produção.** |
-| **02 · Motor fiscal** | Validar documentos sintéticos de NF-e e produzir alertas fundamentados. | Primeiro marco local entregue; limites e próximos passos em [docs/02-motor-fiscal.md](docs/02-motor-fiscal.md). |
+| **02 · Motor fiscal** | Validar documentos sintéticos de NF-e e produzir alertas fundamentados. | **Concluída no escopo `fiscal-engine-v1`: XSD oficial PL 010g v1.03 validado offline, regras I11-10/I11-20 e W07/W08/W09/W10/W15, catálogo NCM temporal, CLI local, fixture sintética e regressões determinísticas. A cobertura e os limites estão em [docs/02-motor-fiscal.md](docs/02-motor-fiscal.md).** |
 | **03 · Aplicativo** | Criar a experiência de conferência local com Tauri. | Planejada |
 | **04 · Landing page** | Apresentar o produto e disponibilizar a distribuição. | Planejada |
 
