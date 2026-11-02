@@ -1,0 +1,17 @@
+{
+  "artifact_sha256": "6e7bf703d4a7a786ece884f4696d9e94548cac03845a17b2d222a0822ca1f666",
+  "byte_size": 3149450,
+  "captured_at": "2026-11-02T18:33:04.918109Z",
+  "final_url": "https://portalunico.siscomex.gov.br/classif/api/publico/nomenclatura/download/json?perfil=PUBLICO",
+  "http_status": 200,
+  "parser": "contai_tax_data.ncm:siscomex-ncm-json-v1",
+  "raw_path": "artifacts/sha256/6e/6e7bf703d4a7a786ece884f4696d9e94548cac03845a17b2d222a0822ca1f666.json",
+  "release_id": "291b98c2473956bfa73905422aa800bfd88dc448acdf4b55e568d582aee7faaa",
+  "requested_url": "https://portalunico.siscomex.gov.br/classif/api/publico/nomenclatura/download/json",
+  "response_headers": {
+    "cache-control": "public, max-age=3600",
+    "content-disposition": "attachment;filename=Tabela_NCM_Vigente_20261102.json",
+    "content-type": "application/json"
+  },
+  "status": "accepted"
+}

@@ -8,7 +8,7 @@ import psycopg
 import pytest
 
 from contai_tax_data.ncm import QualityPolicy
-from contai_tax_data.postgres import publish_ncm_release, stage_ncm_release
+from contai_tax_data.postgres import catalog_ncm_capture, publish_ncm_release, stage_ncm_release
 from contai_tax_data.source import NCM_SOURCE_URL, RetrievedArtifact
 from contai_tax_data.storage import ingest_ncm_artifact
 
@@ -48,6 +48,28 @@ def test_stage_publish_idempotency_access_and_atomic_rollback(tmp_path: Path) ->
         assert published.published is True
         assert repeated_publish.published is False
 
+        header_only = SAMPLE.read_bytes().replace(b"Vigente em 30/10/2026", b"Vigente em 31/10/2026")
+        recapture = ingest_ncm_artifact(
+            _artifact(header_only, CAPTURED_AT + timedelta(days=1)), tmp_path, quality_policy=SAMPLE_POLICY
+        )
+        assert recapture.release_id == first.release_id
+        cataloged = catalog_ncm_capture(connection, tmp_path, recapture.artifact_sha256, quality_policy=SAMPLE_POLICY)
+        repeated_catalog = catalog_ncm_capture(
+            connection, tmp_path, recapture.artifact_sha256, quality_policy=SAMPLE_POLICY
+        )
+        assert cataloged.artifact_created is True
+        assert repeated_catalog.artifact_created is False
+        assert connection.execute(
+            "select count(*) from tax_ingest.source_artifact where source_key = %s", ("siscomex-ncm",)
+        ).fetchone() == (2,)
+        assert connection.execute(
+            "select count(*) from tax_ingest.ingestion_run where artifact_sha256 = %s",
+            (recapture.artifact_sha256,),
+        ).fetchone() == (1,)
+        assert connection.execute(
+            "select artifact_sha256 from tax_ingest.dataset_release where release_id = %s", (first.release_id,)
+        ).fetchone() == (first.artifact_sha256,)
+
         with connection.transaction():
             connection.execute("set local role anon")
             current = connection.execute("select code from tax_public.ncm_current order by code").fetchall()
@@ -55,6 +77,7 @@ def test_stage_publish_idempotency_access_and_atomic_rollback(tmp_path: Path) ->
         with pytest.raises(psycopg.errors.InsufficientPrivilege), connection.transaction():
             connection.execute("set local role anon")
             connection.execute("select * from tax_ingest.source_registry").fetchall()
+        connection.commit()
 
         changed = SAMPLE.read_text(encoding="utf-8").replace("Animais vivos.", "Animais vivos e descritos.").encode()
         second = ingest_ncm_artifact(

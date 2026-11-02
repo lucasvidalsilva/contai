@@ -28,6 +28,7 @@ from contai_tax_data.legal_blocks_postgres import stage_legal_blocks
 from contai_tax_data.normative_capture import capture_lc214, capture_lc214_official_records
 from contai_tax_data.pipeline import capture_ncm
 from contai_tax_data.postgres import (
+    catalog_ncm_capture,
     publish_ibs_cbs_release,
     publish_ncm_release,
     publish_tipi_release,
@@ -175,6 +176,12 @@ def build_parser() -> argparse.ArgumentParser:
     publish = commands.add_parser("publish-ncm", help="publica atomicamente uma release NCM ja persistida")
     publish.add_argument("release_id")
 
+    catalog_ncm = commands.add_parser(
+        "catalog-ncm-artifact", help="cataloga captura validada sem release semantica nova"
+    )
+    catalog_ncm.add_argument("--output", type=Path, default=Path("var/tax-data"))
+    catalog_ncm.add_argument("--artifact-sha256", required=True)
+
     stage_tipi = commands.add_parser("stage-tipi", help="persiste uma release TIPI local no schema privado")
     stage_tipi.add_argument("--output", type=Path, default=Path("var/tax-data"))
     stage_tipi.add_argument("--release-id")
@@ -301,6 +308,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         with psycopg.connect(_database_url(), sslmode="require") as connection:
             stage_result = stage_ncm_release(connection, args.output, args.release_id)
         print(json.dumps(database_result_as_dict(stage_result), ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.command == "catalog-ncm-artifact":
+        with psycopg.connect(_database_url(), sslmode="require") as connection:
+            catalog_result = catalog_ncm_capture(connection, args.output, args.artifact_sha256)
+        print(json.dumps(database_result_as_dict(catalog_result), ensure_ascii=False, sort_keys=True))
         return 0
     if args.command == "publish-ncm":
         with psycopg.connect(_database_url(), sslmode="require") as connection:

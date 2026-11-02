@@ -22,7 +22,15 @@ from contai_tax_data.ibs_cbs import (
     parse_ibs_cbs_html,
     validate_ibs_cbs,
 )
-from contai_tax_data.ncm import DEFAULT_QUALITY_POLICY, NcmDataset, QualityPolicy, parse_ncm_json, validate_ncm
+from contai_tax_data.ncm import (
+    DEFAULT_QUALITY_POLICY,
+    NCM_CONTRACT_VERSION,
+    NCM_SOURCE_SCHEMA_VERSION,
+    NcmDataset,
+    QualityPolicy,
+    parse_ncm_json,
+    validate_ncm,
+)
 from contai_tax_data.source import NCM_SOURCE_URL
 from contai_tax_data.tipi import (
     TIPI_SOURCE_URL,
@@ -111,6 +119,13 @@ class StageResult:
 
 
 @dataclass(frozen=True, slots=True)
+class ArtifactCatalogResult:
+    artifact_sha256: str
+    release_id: str
+    artifact_created: bool
+
+
+@dataclass(frozen=True, slots=True)
 class PublicationResult:
     release_id: str
     published: bool
@@ -118,7 +133,7 @@ class PublicationResult:
     published_at: datetime
 
 
-def result_as_dict(result: StageResult | PublicationResult) -> dict[str, object]:
+def result_as_dict(result: StageResult | PublicationResult | ArtifactCatalogResult) -> dict[str, object]:
     value = asdict(result)
     for key, item in value.items():
         if isinstance(item, (date, datetime)):
@@ -253,6 +268,69 @@ def load_local_ncm_release(output_dir: Path, release_id: str | None = None) -> L
         requested_url=_text(artifact_manifest, "requested_url", "manifesto do artefato"),
         final_url=_text(artifact_manifest, "final_url", "manifesto do artefato"),
         http_status=_integer(artifact_manifest, "http_status", "manifesto do artefato"),
+        content_type=content_type,
+        byte_size=byte_size,
+        raw_path=raw_path,
+        response_headers={key: str(value) for key, value in headers.items()},
+        dataset=dataset,
+    )
+
+
+def load_local_ncm_capture(
+    output_dir: Path,
+    artifact_sha256: str,
+    *,
+    quality_policy: QualityPolicy = DEFAULT_QUALITY_POLICY,
+) -> LocalNcmRelease:
+    """Revalida uma captura que não criou release semântica nova."""
+    if not _SHA256.fullmatch(artifact_sha256):
+        raise ValueError("artifact_sha256 deve ser SHA-256 hexadecimal")
+    root = output_dir.resolve()
+    manifest = _read_json(root / "artifacts" / "manifests" / f"{artifact_sha256}.json", "manifesto do artefato")
+    if _text(manifest, "artifact_sha256", "manifesto do artefato") != artifact_sha256:
+        raise ValueError("hash do artefato diverge do manifesto")
+    if _text(manifest, "status", "manifesto do artefato") != "accepted":
+        raise ValueError("somente artefatos aceitos podem ser catalogados")
+    if manifest.get("parser") != f"contai_tax_data.ncm:{NCM_SOURCE_SCHEMA_VERSION}":
+        raise ValueError("parser NCM diverge do contrato do manifesto")
+    raw_path = _text(manifest, "raw_path", "manifesto do artefato")
+    raw = _safe_local_path(root, raw_path, "raw_path").read_bytes()
+    if hashlib.sha256(raw).hexdigest() != artifact_sha256:
+        raise ValueError("hash do artefato bruto diverge do manifesto")
+    byte_size = _integer(manifest, "byte_size", "manifesto do artefato")
+    if len(raw) != byte_size:
+        raise ValueError("tamanho do artefato bruto diverge do manifesto")
+
+    dataset = parse_ncm_json(raw)
+    validate_ncm(dataset, quality_policy)
+    headers = _object(manifest.get("response_headers"), "response_headers")
+    if not all(isinstance(value, str) for value in headers.values()):
+        raise ValueError("response_headers deve conter somente textos")
+    content_type = str(headers.get("content-type", "")).split(";", maxsplit=1)[0].strip().lower()
+    if content_type != "application/json":
+        raise ValueError("manifesto nao confirma Content-Type application/json")
+    requested_url = _text(manifest, "requested_url", "manifesto do artefato")
+    final_url = _text(manifest, "final_url", "manifesto do artefato")
+    if requested_url != NCM_SOURCE_URL or not final_url.startswith(NCM_SOURCE_URL):
+        raise ValueError("URL do artefato diverge da fonte oficial NCM")
+    if _integer(manifest, "http_status", "manifesto do artefato") != 200:
+        raise ValueError("somente resposta HTTP 200 pode ser catalogada")
+    captured_at = _timestamp(_text(manifest, "captured_at", "manifesto do artefato"), "captured_at")
+    snapshot = dataset.snapshot_jsonl()
+    snapshot_sha256 = hashlib.sha256(snapshot).hexdigest()
+    return LocalNcmRelease(
+        release_id=dataset.release_id,
+        artifact_sha256=artifact_sha256,
+        snapshot_sha256=snapshot_sha256,
+        contract_version=NCM_CONTRACT_VERSION,
+        source_schema_version=NCM_SOURCE_SCHEMA_VERSION,
+        source_act=dataset.source_act,
+        source_as_of=dataset.source_as_of,
+        created_at=captured_at,
+        captured_at=captured_at,
+        requested_url=requested_url,
+        final_url=final_url,
+        http_status=200,
         content_type=content_type,
         byte_size=byte_size,
         raw_path=raw_path,
@@ -483,7 +561,7 @@ def _configure_transaction(connection: Connection[Any], lock_name: str) -> None:
     connection.execute("select pg_advisory_xact_lock(hashtextextended(%s, 0))", (lock_name,))
 
 
-def _upsert_source(connection: Connection[Any], local: LocalNcmRelease) -> None:
+def _upsert_source(connection: Connection[Any], local: LocalNcmRelease) -> bool:
     connection.execute(
         """
         insert into tax_ingest.source_registry (
@@ -510,13 +588,14 @@ def _upsert_source(connection: Connection[Any], local: LocalNcmRelease) -> None:
             datetime.now(UTC),
         ),
     )
-    connection.execute(
+    inserted = connection.execute(
         """
         insert into tax_ingest.source_artifact (
           source_key, artifact_sha256, requested_url, final_url, captured_at,
           http_status, content_type, byte_size, raw_path, response_headers, status
         ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'accepted')
         on conflict (source_key, artifact_sha256) do nothing
+        returning artifact_sha256
         """,
         (
             _SOURCE_KEY,
@@ -530,6 +609,53 @@ def _upsert_source(connection: Connection[Any], local: LocalNcmRelease) -> None:
             local.raw_path,
             Jsonb(local.response_headers),
         ),
+    ).fetchone()
+    return inserted is not None
+
+
+def catalog_ncm_capture(
+    connection: Connection[Any],
+    output_dir: Path,
+    artifact_sha256: str,
+    *,
+    quality_policy: QualityPolicy = DEFAULT_QUALITY_POLICY,
+) -> ArtifactCatalogResult:
+    """Registra bruto validado sem criar release quando só mudou metadado diário."""
+    local = load_local_ncm_capture(output_dir, artifact_sha256, quality_policy=quality_policy)
+    started_at = datetime.now(UTC)
+    with connection.transaction():
+        _configure_transaction(connection, "contai:ncm:catalog-artifact")
+        release = connection.execute(
+            """
+            select snapshot_sha256, entry_count, leaf_count
+            from tax_ingest.dataset_release
+            where release_id = %s and source_key = %s
+            """,
+            (local.release_id, _SOURCE_KEY),
+        ).fetchone()
+        if release is None:
+            raise ValueError("a release semantica da captura precisa estar staged antes do bruto")
+        if release != (
+            local.snapshot_sha256,
+            len(local.dataset.entries),
+            local.dataset.leaf_count,
+        ):
+            raise ValueError("captura diverge da release staged; use stage-ncm para candidato semantico novo")
+
+        artifact_created = _upsert_source(connection, local)
+        if artifact_created:
+            connection.execute(
+                """
+                insert into tax_ingest.ingestion_run (
+                  source_key, artifact_sha256, release_id, started_at, completed_at, status
+                ) values (%s, %s, %s, %s, %s, 'succeeded')
+                """,
+                (_SOURCE_KEY, local.artifact_sha256, local.release_id, started_at, datetime.now(UTC)),
+            )
+    return ArtifactCatalogResult(
+        artifact_sha256=local.artifact_sha256,
+        release_id=local.release_id,
+        artifact_created=artifact_created,
     )
 
 

@@ -295,14 +295,16 @@ Não pedir confirmação para cada função, teste, diretório ou commit local. 
 
 ## 12. Resultado do Marco A e preparação local do Marco B
 
-Levantamento realizado em **30/10/2026**. URLs e contagens abaixo são evidências datadas, não promessa de estabilidade. A classificação `confirmado na origem` significa que a página, documentação ou artefato oficial foi consultado; `observado apenas na referência` não é tratado como contrato oficial; `hipótese` exige nova verificação antes de implementar.
+Levantamento inicial em **30/10/2026**, atualizado em **02/11/2026**. URLs e contagens abaixo são evidências datadas, não promessa de estabilidade. A classificação `confirmado na origem` significa que a página, documentação ou artefato oficial foi consultado; `observado apenas na referência` não é tratado como contrato oficial; `hipótese` exige nova verificação antes de implementar.
 
 ### 12.1 Referência técnica fixada
 
 - Repositório: [`Matheuscfs/legislacao-tributaria`](https://github.com/Matheuscfs/legislacao-tributaria).
-- Commit estudado: [`94a27084e158ef4c62a317822b3d2d2b517858ad`](https://github.com/Matheuscfs/legislacao-tributaria/tree/94a27084e158ef4c62a317822b3d2d2b517858ad), de `2026-10-30T15:34:28Z`.
-- Licença nesse commit: MIT, copyright 2026 Matheus Fachim.
-- Arquivos lidos: `README.md`, `LICENSE`, `scripts/capturar.ts`, `src/fonte.ts`, `src/ncm.ts`, `src/ibs-cbs.ts`, `src/cest.ts`, `src/tipi.ts`, `src/planalto.ts`, `src/confaz.ts`, `src/descoberta.ts`, `.github/workflows/capturar.yml` e os quatro arquivos de testes.
+- Commit fixado localmente: [`668cdbd2e80dbdce4842c37964b8e2ccca14ad47`](https://github.com/Matheuscfs/legislacao-tributaria/tree/668cdbd2e80dbdce4842c37964b8e2ccca14ad47), commit de `2026-10-31T15:04:27Z`, clonado em `ref/` para inspeção e excluído do Git principal.
+- Licença verificada no próprio commit: MIT, copyright 2026 Matheus Fachim; nenhuma parte substancial de código, teste ou corpus foi copiada/adaptada. Não há obrigação de adicionar o aviso MIT ao contAI enquanto a implementação permanecer independente.
+- Arquivos inspecionados nesta revisão: `README.md`, `LICENSE`, `package.json`, `scripts/capturar.ts`, `src/fonte.ts`, `src/gravar.ts`, `src/diferenca.ts`, `src/ncm.ts`, `src/ibs-cbs.ts`, `src/cest.ts`, `src/tipi.ts`, `src/planalto.ts`, `src/confaz.ts`, `src/descoberta.ts`, `.github/workflows/capturar.yml` e testes de tabelas, Planalto, fontes e CONFAZ.
+- Resultado da migração: os fluxos de captura/extração incorporados ao escopo da Etapa 1 têm soluções Python independentes nos módulos `source.py`, `storage.py`, `pipeline.py`, `ncm.py`, `tipi.py`, `ibs_cbs.py`, `cest_capture.py`, `cest_candidates.py`, `federal_law.py`, `confaz_discovery.py` e `confaz_act.py`. Isto não é um port 1:1 do acervo: o corpus da referência e seu conversor geral do Planalto não foram importados; LC 214 usa fonte oficial da Câmara e os demais domínios seguem os limites descritos na matriz. A comparação guiou contratos e casos de borda, sem cópia de código ou dados.
+- A referência contém corpus e histórico extensos. `ref/` permanece somente como checkout local ignorado; os dados tributários versionados em `data/tax-data/` foram capturados e reprocessados independentemente das fontes citadas em seus manifestos.
 - Uso no contAI: estudo de comportamento e descoberta de casos de borda. A implementação Python foi escrita de forma independente; nenhum código, teste ou corpus transformado da referência foi copiado.
 
 ### 12.2 Matriz comparativa
@@ -458,6 +460,10 @@ Artefatos implementados em `packages/tax-data/`, com banco remoto somente no amb
 
 14. **Concluído — staging estrutural legal em `contai-dev`:** migration `20261102051034_add_legal_document_block_staging.sql` e comando `stage-legal-blocks` validam proveniência, hashes, parser reproduzível e conteúdo antes de persistir 12.966 blocos dos 24 atos CONFAZ e quatro registros LC 214 em `tax_ingest`. Carga idempotente; RLS/grants limitados à role de ingestão; sem interpretação, tabela/view pública ou promoção automática. Aplicada em `contai-dev`; carga remota de 28 conjuntos/12.966 blocos e segunda passagem idempotente confirmadas; leitura `anon` negada. A SQL foi aplicada sobre TLS e registrada no histórico Supabase porque a CLI não tinha token de gerenciamento nesta sessão.
 
+15. **Concluído — catálogo de captura NCM sem release nova:** a recaptura oficial de 02/11/2026 retornou HTTP 200, 3.149.450 bytes e hash `6e7bf703d4a7a786ece884f4696d9e94548cac03845a17b2d222a0822ca1f666`. O cabeçalho mudou de `Vigente em 01/11/2026` para `Vigente em 02/11/2026`; os 15.157 registros, 10.516 folhas e release `291b98c2473956bfa73905422aa800bfd88dc448acdf4b55e568d582aee7faaa` permaneceram iguais. O bruto/manifesto novo está preservado em `data/tax-data/ncm/`. `catalog-ncm-artifact` revalida schema, hash, contagem e qualidade, exige igualdade com a release já staged e registra o novo artefato e execução em uma transação sem criar outra release. No `contai-dev`, primeira execução retornou `artifact_created=true`; a repetição retornou `false`, sem nova linha de artefato/execução e sem alteração da release pública.
+
+Na recaptura local de 02/11/2026, TIPI manteve 11.103 itens e a mesma release; IBS/CBS manteve 18 CST, 173 classificações, 4.728 vínculos e a mesma release; CEST e LC 214 mantiveram os hashes brutos existentes. O sitemap CONFAZ mudou de hash (`f3e546fbb596d06d1dd527c5b777453a4a4c39c1c147ce89da72fd253dd8fe26`), mas reprocessou para o mesmo snapshot (`106e8b06f556eebf7e98b4ee94814fe93199299d4eb5e35eebaa2b4b9215c7e0`) e 11.369 candidatos. `lastmod` continua sendo metadado do portal, sem interpretação jurídica.
+
 Comandos locais padronizados:
 
 ```powershell
@@ -512,6 +518,7 @@ Uso manual, somente depois de migrar um banco de desenvolvimento e configurar a 
 Copy-Item .env.example .env
 # Preencher SUPABASE_PROJECT_REF e CONTAI_DATABASE_URL no .env.
 uv --cache-dir .uv-cache run --env-file .env --project packages/tax-data contai-tax-data stage-ncm --output var/tax-data
+uv --cache-dir .uv-cache run --env-file .env --project packages/tax-data contai-tax-data catalog-ncm-artifact --output var/tax-data --artifact-sha256 <sha256>
 uv --cache-dir .uv-cache run --env-file .env --project packages/tax-data contai-tax-data publish-ncm <release_id>
 ```
 
