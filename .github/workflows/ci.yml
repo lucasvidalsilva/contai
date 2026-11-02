@@ -28,7 +28,9 @@ jobs:
             packages/fiscal-engine/uv.lock
 
       - name: Install locked Python environment
-        run: uv sync --locked --project packages/tax-data
+        run: |
+          uv sync --locked --project packages/tax-data
+          uv sync --locked --project packages/fiscal-engine
 
       - name: Check fiscal-engine lockfile
         run: uv lock --check --project packages/fiscal-engine
@@ -40,12 +42,14 @@ jobs:
         run: uv run --project packages/tax-data ruff format --check packages/tax-data packages/fiscal-engine
 
       - name: Type check
-        run: uv run --project packages/tax-data mypy packages/tax-data/src packages/fiscal-engine/src
+        run: |
+          uv run --project packages/tax-data mypy packages/tax-data/src
+          uv run --project packages/fiscal-engine mypy packages/fiscal-engine/src
 
       - name: Unit and offline integration tests
         run: |
           uv run --project packages/tax-data pytest --rootdir packages/tax-data packages/tax-data/tests
-          uv run --project packages/tax-data pytest --rootdir packages/fiscal-engine packages/fiscal-engine/tests
+          uv run --project packages/fiscal-engine pytest --rootdir packages/fiscal-engine packages/fiscal-engine/tests
 
       - name: Install locked Node development tools
         run: npm ci --ignore-scripts --no-audit --no-fund

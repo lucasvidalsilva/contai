@@ -39,7 +39,10 @@ def test_synthetic_nfe_inside_nfe_proc_is_analyzed() -> None:
 
 
 def test_item_product_total_divergence_has_rule_and_evidence() -> None:
-    mismatched = XML.replace(b">10.00</vProd></ICMSTot>", b">11.00</vProd></ICMSTot>")
+    mismatched = XML.replace(
+        b"<vProd>10.00</vProd>\n        <vFrete>0.00</vFrete>",
+        b"<vProd>11.00</vProd>\n        <vFrete>0.00</vFrete>",
+    )
 
     (alert,) = analyze_nfe(mismatched).alerts
 
@@ -51,6 +54,39 @@ def test_total_ignores_item_marked_outside_invoice_total() -> None:
     report = analyze_nfe(XML)
 
     assert "product_total_mismatch" not in {alert.code for alert in report.alerts}
+
+
+@pytest.mark.parametrize(
+    ("field", "expected_rule", "expected_code"),
+    [
+        ("vFrete", "NFE-TOTAL-FRETE-001", "freight_total_mismatch"),
+        ("vSeg", "NFE-TOTAL-SEGURO-001", "insurance_total_mismatch"),
+        ("vDesc", "NFE-TOTAL-DESCONTO-001", "discount_total_mismatch"),
+        ("vOutro", "NFE-TOTAL-OUTRO-001", "other_total_mismatch"),
+    ],
+)
+def test_item_component_total_rules_have_stable_evidence(field: str, expected_rule: str, expected_code: str) -> None:
+    changed = XML.replace(
+        f"<{field}>0.00</{field}>".encode(),
+        f"<{field}>1.00</{field}>".encode(),
+        1,
+    )
+
+    alert = next(alert for alert in analyze_nfe(changed).alerts if alert.code == expected_code)
+
+    assert alert.rule_id == expected_rule
+    assert alert.evidence == ("soma_dos_itens=0.00", "total_declarado=1.00")
+
+
+def test_freight_sum_includes_item_marked_outside_product_total() -> None:
+    changed = XML.replace(
+        b"<indTot>0</indTot>",
+        b"<vFrete>2.00</vFrete>\n        <indTot>0</indTot>",
+    ).replace(b"<vFrete>0.00</vFrete>", b"<vFrete>2.00</vFrete>", 1)
+
+    report = analyze_nfe(changed)
+
+    assert "freight_total_mismatch" not in {alert.code for alert in report.alerts}
 
 
 @pytest.mark.parametrize(
@@ -113,8 +149,11 @@ def test_historical_issue_date_does_not_claim_catalog_absence() -> None:
         (b"<Other/>", "document_rejected"),
         (XML.replace(b' xmlns="http://www.portalfiscal.inf.br/nfe"', b""), "document_rejected"),
         (XML.replace(b"<mod>55</mod>", b"<mod>65</mod>"), "document_rejected"),
-        (XML.replace(b'versao="4.00"', b'versao="3.10"'), "document_rejected"),
-        (XML.replace(b"<qCom>2.0000</qCom>", b"<qCom>123456789012.0000</qCom>", 1), "document_rejected"),
+        (XML.replace(b'versao="4.00"', b'versao="3.10"'), "schema_validation_failed"),
+        (
+            XML.replace(b"<qCom>2.0000</qCom>", b"<qCom>123456789012.0000</qCom>", 1),
+            "schema_validation_failed",
+        ),
     ],
 )
 def test_rejects_malformed_unsafe_or_unsupported_xml(xml: bytes, code: str) -> None:
