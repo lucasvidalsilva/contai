@@ -1,7 +1,7 @@
 # Etapa 01 — Pipeline tributária
 
 > **contAI · Especificação de execução v2.0 · 30/10/2026**  
-> **Status:** NCM, TIPI e IBS/CBS têm releases validadas e publicadas no projeto Supabase `contai-dev`; seus artefatos brutos e snapshots normalizados estão versionados em `data/tax-data/`. CEST tem captura, extração e staging PostgreSQL privado em `contai-dev`, preservando 1.569 candidatos como `unresolved`; não é publicado nem representa vigência jurídica. As migrações TIPI, IBS/CBS e CEST foram aplicadas somente em `contai-dev`. Outras fontes normativas seguem pendentes ou bloqueadas.
+> **Status:** marco operacional da etapa 01 concluído somente em `contai-dev`. NCM, TIPI e IBS/CBS têm releases publicadas; CEST permanece privado como 1.569 candidatos `unresolved`; LC 214 e 24 atos CONFAZ têm 12.966 blocos estruturais privados, sem interpretação jurídica ou publicação. O índice em `data/` contém apenas as seis últimas execuções bem-sucedidas. Metadados, observações e 34 payloads brutos (20.563.634 bytes) estão no schema privado `tax_ingest`; um artefato NCM histórico (`dfae9ea9…`) mantém metadado sem payload recuperável. Não houve carga em produção.
 > **Escopo autorizado:** exclusivamente a plataforma de dados tributários. Motor fiscal, desktop, landing page, IA e MCP permanecem fora desta etapa.
 
 ## 1. Objetivo
@@ -76,14 +76,14 @@ Registrar no inventário, para cada fonte: órgão responsável; página/documen
 | Coleta | Cliente HTTP Python com timeout, limites, backoff e identificação do cliente; parsing por formato |
 | Transformação | Python tipado e SQL explícito, sem Spark nem ORM pesado |
 | Dados tabulares | PostgreSQL no Supabase; preservar códigos fiscais como `TEXT` |
-| Originais | Arquivar captura por hash com checksum e metadados; snapshots oficiais públicos de volume moderado ficam versionados em `data/tax-data/` para revisão e reprocessamento |
+| Originais | Arquivar captura por hash, checksum e metadados no schema privado `tax_ingest`; o checkout contém apenas o índice das últimas execuções e capturas locais usam `var/tax-data/` |
 | Versionamento | Conteúdo por hash, versões de dataset e vigência fiscal separadas |
 | Automatização | GitHub Actions: CI separado da captura agendada e execução manual |
 | Qualidade | `pytest`, `ruff`, verificação de tipos; testes com fixtures offline |
 | Migrações | SQL versionado e Supabase CLI; implantação remota mediante aprovação |
 | Interface externa | Nenhuma API própria na primeira entrega; publicação somente de visões/datasets aprovados |
 
-**Decisão adotada:** versionar em `data/tax-data/` os arquivos oficiais públicos pequenos ou moderados, com hash e manifesto. Reservar armazenamento privado de objetos para corpus que exceda limites práticos do Git; escolher provedor, cotas e custos antes de provisionar qualquer serviço.
+**Decisão adotada:** o Supabase privado guarda os payloads brutos e sua proveniência; `data/tax-data/latest-runs.json` guarda somente as últimas execuções. `var/tax-data/` é a área temporária local. Releases aprovadas continuam versionadas no PostgreSQL.
 
 
 ### Política de decisão e autonomia durante a etapa
@@ -308,7 +308,7 @@ Levantamento inicial em **30/10/2026**, atualizado em **02/11/2026**. URLs e con
 - Licença verificada no próprio commit: MIT, copyright 2026 Matheus Fachim; nenhuma parte substancial de código, teste ou corpus foi copiada/adaptada. Não há obrigação de adicionar o aviso MIT ao contAI enquanto a implementação permanecer independente.
 - Arquivos inspecionados nesta revisão: `README.md`, `LICENSE`, `package.json`, `scripts/capturar.ts`, `src/fonte.ts`, `src/gravar.ts`, `src/diferenca.ts`, `src/ncm.ts`, `src/ibs-cbs.ts`, `src/cest.ts`, `src/tipi.ts`, `src/planalto.ts`, `src/confaz.ts`, `src/descoberta.ts`, `.github/workflows/capturar.yml` e testes de tabelas, Planalto, fontes e CONFAZ.
 - Resultado da migração: os fluxos de captura/extração incorporados ao escopo da Etapa 1 têm soluções Python independentes nos módulos `source.py`, `storage.py`, `pipeline.py`, `ncm.py`, `tipi.py`, `ibs_cbs.py`, `cest_capture.py`, `cest_candidates.py`, `federal_law.py`, `confaz_discovery.py` e `confaz_act.py`. Isto não é um port 1:1 do acervo: o corpus da referência e seu conversor geral do Planalto não foram importados; LC 214 usa fonte oficial da Câmara e os demais domínios seguem os limites descritos na matriz. A comparação guiou contratos e casos de borda, sem cópia de código ou dados.
-- A referência contém corpus e histórico extensos. `ref/` permanece somente como checkout local ignorado; os dados tributários versionados em `data/tax-data/` foram capturados e reprocessados independentemente das fontes citadas em seus manifestos.
+- A referência contém corpus e histórico extensos. `ref/` permanece somente como checkout local ignorado; os dados tributários foram capturados e reprocessados independentemente das fontes citadas em seus manifestos, e seus payloads históricos agora ficam no arquivo privado do Supabase.
 - Uso no contAI: estudo de comportamento e descoberta de casos de borda. A implementação Python foi escrita de forma independente; nenhum código, teste ou corpus transformado da referência foi copiado.
 
 ### 12.2 Matriz comparativa
@@ -352,9 +352,9 @@ uv --cache-dir .uv-cache run --project packages/tax-data contai-tax-data stage-c
   --capture-root var/tax-data/cest
 ```
 
-Cada linha tem `legal_status=unresolved`. A captura observada gerou 1.569 linhas candidatas e 1.044 códigos distintos; repetições não são eliminadas porque podem pertencer a anexos ou redações diferentes. A linha extraída não prova que a regra está ativa nem determina alcance. Este artefato **não é release normalizada** e não pode alimentar consulta fiscal ou publicação até correlacionar anexos, atos modificadores, redações e vigência com evidências oficiais e fixtures revisadas. A automação GitHub Actions continua manual (`workflow_dispatch`) e mantém artefato de execução por 14 dias; os snapshots iniciais e o bruto CEST também ficam versionados em `data/tax-data/`.
+Cada linha tem `legal_status=unresolved`. A captura observada gerou 1.569 linhas candidatas e 1.044 códigos distintos; repetições não são eliminadas porque podem pertencer a anexos ou redações diferentes. A linha extraída não prova que a regra está ativa nem determina alcance. Este artefato **não é release normalizada** e não pode alimentar consulta fiscal ou publicação até correlacionar anexos, atos modificadores, redações e vigência com evidências oficiais e fixtures revisadas. A automação GitHub Actions continua manual (`workflow_dispatch`) e mantém artefato de execução por 14 dias; o bruto e as observações ficam no arquivo privado do Supabase após o staging; artifacts de execução do Actions expiram em 14 dias.
 
-### Dados públicos versionados em `data/tax-data/`
+### Inventário histórico dos dados tributários
 
 O repositório agora preserva os artefatos brutos e snapshots reproduzíveis iniciais de NCM, TIPI, IBS/CBS e candidatos CEST, com SHA-256 e metadados por captura. As datas e contagens estão em [`data/README.md`](../data/README.md). A rotina local de atualização continua capturando primeiro em `var/`; um snapshot só entra em `data/` depois de validação e revisão em branch/PR. NCM, TIPI e IBS/CBS já foram staged e publicadas em `contai-dev`; a cópia versionada foi reprocessada por testes offline. CEST foi staged somente em `tax_ingest` e mantém status unresolved.
 
@@ -362,7 +362,7 @@ O repositório agora preserva os artefatos brutos e snapshots reproduzíveis ini
 
 `capture-confaz-sitemap` faz no máximo duas tentativas HTTP limitadas ao endpoint fixo [`sitemap.xml.gz`](https://www.confaz.fazenda.gov.br/sitemap.xml.gz), exige HTTP 200, URL final idêntica, `application/octet-stream`, assinatura GZip e XML válido; arquiva o bruto por SHA-256 e registra cabeçalhos permitidos, tamanho e horário. O descompactador limita a saída a 50 MiB. A captura validada em 01/11/2026 teve 325.836 bytes comprimidos e 4.931.396 bytes XML.
 
-`discover-confaz-acts <sitemap.xml.gz> <observacao.json>` reprocessa somente um bruto validado e cria JSONL ordenado, idempotente e versionado por hash/parser com os registros cuja URL pertence a `/legislacao/convenios/`, `/legislacao/ajustes/` ou `/legislacao/protocolos/`. Preserva URL e `lastmod` literal; rejeita URLs fora do host oficial, XML inesperado, duplicatas e datas malformadas. Não acessa automaticamente as 11.369 páginas listadas, não extrai ementas, não transforma `lastmod` em vigência ou data de alteração jurídica, não resolve ato alterador e não grava no Supabase. A execução observada encontrou 30.746 URLs no sitemap, todas com `lastmod`, e 11.369 candidatas nos três caminhos. Snapshot e bruto ficam em `data/tax-data/confaz/`.
+`discover-confaz-acts <sitemap.xml.gz> <observacao.json>` reprocessa somente um bruto validado e cria JSONL ordenado, idempotente e versionado por hash/parser com os registros cuja URL pertence a `/legislacao/convenios/`, `/legislacao/ajustes/` ou `/legislacao/protocolos/`. Preserva URL e `lastmod` literal; rejeita URLs fora do host oficial, XML inesperado, duplicatas e datas malformadas. Não acessa automaticamente as 11.369 páginas listadas, não extrai ementas, não transforma `lastmod` em vigência ou data de alteração jurídica, não resolve ato alterador e não grava no Supabase. A execução observada encontrou 30.746 URLs no sitemap, todas com `lastmod`, e 11.369 candidatas nos três caminhos. O bruto fica no arquivo privado do Supabase; recupere-o com `packages/tax-data/scripts/restore_supabase_payload.py` para reprocessamento.
 
 `capture-confaz-act <url>` permite uma captura por chamada, apenas se a URL exata constar do snapshot reprocessado a partir do sitemap oficial versionado. Exige HTTP 200, mesma URL final, HTML UTF-8 e até 25 MiB; arquiva o bruto por hash com ponteiro/observação vinculando sitemap, snapshot, `lastmod` literal e seção. A página oficial do [Convênio ICMS 107/26](https://www.confaz.fazenda.gov.br/legislacao/convenios/2026/CV107_26) declara alterar o Convênio 142/18; foi capturada e extraída estruturalmente, sem classificação de vigência. Captura e extração estrutural não concluem interpretação jurídica.
 
@@ -464,7 +464,7 @@ Artefatos implementados em `packages/tax-data/`, com banco remoto somente no amb
 
 14. **Concluído — staging estrutural legal em `contai-dev`:** migration `20261102051034_add_legal_document_block_staging.sql` e comando `stage-legal-blocks` validam proveniência, hashes, parser reproduzível e conteúdo antes de persistir 12.966 blocos dos 24 atos CONFAZ e quatro registros LC 214 em `tax_ingest`. Carga idempotente; RLS/grants limitados à role de ingestão; sem interpretação, tabela/view pública ou promoção automática. Aplicada em `contai-dev`; carga remota de 28 conjuntos/12.966 blocos e segunda passagem idempotente confirmadas; leitura `anon` negada. A SQL foi aplicada sobre TLS e registrada no histórico Supabase porque a CLI não tinha token de gerenciamento nesta sessão.
 
-15. **Concluído — catálogo de captura NCM sem release nova:** a recaptura oficial de 02/11/2026 retornou HTTP 200, 3.149.450 bytes e hash `6e7bf703d4a7a786ece884f4696d9e94548cac03845a17b2d222a0822ca1f666`. O cabeçalho mudou de `Vigente em 01/11/2026` para `Vigente em 02/11/2026`; os 15.157 registros, 10.516 folhas e release `291b98c2473956bfa73905422aa800bfd88dc448acdf4b55e568d582aee7faaa` permaneceram iguais. O bruto/manifesto novo está preservado em `data/tax-data/ncm/`. `catalog-ncm-artifact` revalida schema, hash, contagem e qualidade, exige igualdade com a release já staged e registra o novo artefato e execução em uma transação sem criar outra release. No `contai-dev`, primeira execução retornou `artifact_created=true`; a repetição retornou `false`, sem nova linha de artefato/execução e sem alteração da release pública.
+15. **Concluído — catálogo de captura NCM sem release nova:** a recaptura oficial de 02/11/2026 retornou HTTP 200, 3.149.450 bytes e hash `6e7bf703d4a7a786ece884f4696d9e94548cac03845a17b2d222a0822ca1f666`. O cabeçalho mudou de `Vigente em 01/11/2026` para `Vigente em 02/11/2026`; os 15.157 registros, 10.516 folhas e release `291b98c2473956bfa73905422aa800bfd88dc448acdf4b55e568d582aee7faaa` permaneceram iguais. O bruto/manifesto está arquivado no Supabase dev em `tax_ingest.source_artifact_payload`. `catalog-ncm-artifact` revalida schema, hash, contagem e qualidade, exige igualdade com a release já staged e registra o novo artefato e execução em uma transação sem criar outra release. No `contai-dev`, primeira execução retornou `artifact_created=true`; a repetição retornou `false`, sem nova linha de artefato/execução e sem alteração da release pública.
 
 Na recaptura local de 02/11/2026, TIPI manteve 11.103 itens e a mesma release; IBS/CBS manteve 18 CST, 173 classificações, 4.728 vínculos e a mesma release; CEST e LC 214 mantiveram os hashes brutos existentes. O sitemap CONFAZ mudou de hash (`f3e546fbb596d06d1dd527c5b777453a4a4c39c1c147ce89da72fd253dd8fe26`), mas reprocessou para o mesmo snapshot (`106e8b06f556eebf7e98b4ee94814fe93199299d4eb5e35eebaa2b4b9215c7e0`) e 11.369 candidatos. `lastmod` continua sendo metadado do portal, sem interpretação jurídica.
 
@@ -492,14 +492,14 @@ npm run test:db-schema
 npm run test:db-integration
 ```
 
-**Recuperação e atualização:** preserve o bruto, a observação, o manifesto e o snapshot endereçados por hash em `data/tax-data/`; falhas de staging revertem a transação e podem ser reexecutadas com os mesmos argumentos. Repetir uma captura sem mudança mantém o mesmo hash/conjunto; conteúdo alterado cria novo artefato/conjunto e não sobrescreve o anterior. Para novas migrations, use `supabase db push --dry-run` antes da aplicação no projeto de desenvolvimento; valide depois o histórico, RLS/grants e contagens. Em falha de validação, não edite ponteiros nem marque o lote como publicado: corrija o parser/contrato, gere novo snapshot e passe novamente pelos testes e revisão em branch/PR.
+**Recuperação e atualização:** recupere o bruto e seus metadados por `(source_key, artifact_sha256)` com `packages/tax-data/scripts/restore_supabase_payload.py`; a rotina valida tamanho e SHA-256 antes de gravar em `var/`. Capturas temporárias usam `var/tax-data/`. Falhas de staging revertem a transação e podem ser reexecutadas; dados publicados continuam imutáveis e a última release aprovada não é substituída por dados reprovados. Para novas migrations, use `supabase db push --dry-run` antes da aplicação no projeto de desenvolvimento; valide o histórico, RLS/grants e contagens.
 
 
-Para CONFAZ use `--capture-root data/tax-data/confaz`; para LC 214 use `data/tax-data/laws/lc214` (atualizada) ou `data/tax-data/laws/lc214/records/<registro>`. O comando `stage-legal-blocks` também exige conexão PostgreSQL explícita e a migration legal aplicada no banco de destino; grava somente em `tax_ingest`, sem interpretação ou publicação. Os comandos `stage-tipi`, `publish-tipi`, `stage-ibs-cbs`, `publish-ibs-cbs` e `stage-cest-candidates` exigem conexão PostgreSQL explícita e migrations correspondentes no banco de destino. As migrations e publicações descritas acima foram executadas somente no projeto de desenvolvimento `contai-dev`; nenhuma carga foi feita em produção.
+Para CONFAZ use `--capture-root var/tax-data/confaz`; para LC 214 use `var/tax-data/laws/lc214` (atualizada) ou `var/tax-data/laws/lc214/records/<registro>`. O comando `stage-legal-blocks` também exige conexão PostgreSQL explícita e a migration legal aplicada no banco de destino; grava somente em `tax_ingest`, sem interpretação ou publicação. Os comandos `stage-tipi`, `publish-tipi`, `stage-ibs-cbs`, `publish-ibs-cbs` e `stage-cest-candidates` exigem conexão PostgreSQL explícita e migrations correspondentes no banco de destino. As migrations e publicações descritas acima foram executadas somente no projeto de desenvolvimento `contai-dev`; nenhuma carga foi feita em produção.
 
 As migrations TIPI, IBS/CBS e CEST foram aplicadas no projeto `contai-dev`; TIPI e IBS/CBS foram staged e publicadas, enquanto CEST permanece somente em `tax_ingest`. Consulta remota confirmou 15.157 linhas NCM, 11.103 TIPI, 18 CST, 173 cClassTrib e 4.728 vínculos. O papel `anon` consegue ler as views correntes e não consegue ler `tax_ingest`; os advisories Supabase não retornaram alertas.
 
-O diretório `var/` continua local e ignorado pelo Git. `data/tax-data/` é o arquivo inicial versionado de fontes públicas; novas versões devem preservar caminhos por hash e entrar por PR depois dos testes. Workflows retêm cópias de execução por 14 dias, mas não criam automaticamente PRs de atualização do arquivo versionado. Capturas não escrevem no banco; staging e publicação seguem comandos explícitos.
+O diretório `var/` é local e ignorado pelo Git. `data/tax-data/latest-runs.json` registra apenas a execução mais recente de cada fonte. Os payloads históricos e observações permanecem no Supabase privado; artifacts temporários do Actions expiram em 14 dias. Capturas são locais/temporárias; staging e publicação são ações explícitas.
 
 ### 12.11 Implementação do Marco C
 
@@ -514,7 +514,7 @@ O módulo `contai_tax_data.postgres` reprocessa o JSON bruto, confere hashes, sn
 
 Os testes offline usam PostgreSQL 17 compilado para WebAssembly por PGlite e o protocolo PostgreSQL real para o `psycopg`. Eles aplicam todas as migrations, exercitam duas cargas iguais, duas publicações iguais, leitura como `anon`, negação do schema privado e uma falha injetada após a cópia pública para comprovar rollback. No Supabase dev, foram verificados PostgreSQL 17.11, TLS, `SET ROLE`, RLS, `security_invoker`, grants, histórico de migrations, ausência de drift, advisors, leitura HTTP 200 de `tax_public` e rejeição HTTP 406 de `tax_ingest`. Auth e Storage não foram exercitados porque não participam deste fluxo.
 
-A captura NCM atual, de 01/11/2026, foi staged e publicada no Supabase dev: 15.157 registros e 10.516 subitens. Reexecução de staging e publicação são idempotentes. O bruto e a release normalizada reproduzíveis estão versionados em `data/tax-data/ncm/`; `var/` permanece como área local de trabalho.
+A release NCM corrente está publicada no Supabase dev com 15.157 registros e 10.516 subitens. Reexecução de staging e publicação é idempotente. O payload bruto e seu histórico de capturas ficam em `tax_ingest.source_artifact_payload` e `tax_ingest.source_artifact_observation`; a leitura segue privada.
 
 Uso manual, somente depois de migrar um banco de desenvolvimento e configurar a associação da credencial de ingestão à role sem login:
 
@@ -531,3 +531,11 @@ Usar a conexão `Session pooler` para a pipeline em redes IPv4; a CLI força `ss
 ---
 
 **Princípio:** dados fiscais úteis precisam ser **atuais, verificáveis, historicamente explicáveis e seguros**. Captura automática sem procedência e testes não é uma base confiável.
+
+### 12.12 Retenção do arquivo local e histórico remoto
+
+Em 02/11/2026, os 201 arquivos de `data/tax-data/` foram consolidados no projeto `contai-dev`: 34 payloads brutos (20.563.634 bytes), releases estruturadas e blocos legais. `data/tax-data/latest-runs.json` mantém somente os seis últimos runs do GitHub Actions e suas datas de expiração. O repositório não reescreve histórico Git; as versões antigas continuam acessíveis pelos commits anteriores.
+
+A migration `20261102113000_archive_source_artifact_payloads.sql` criou `tax_ingest.source_artifact_payload`, com FK ao catálogo de artefatos, conferência de tamanho, RLS e acesso somente à role `tax_ingest_writer`. A migration `20261102133000_record_source_capture_observations.sql` criou `tax_ingest.source_artifact_observation` para manter capturas repetidas do mesmo hash com timestamps e cabeçalhos próprios. `anon` e `authenticated` não leem essas tabelas. O script `packages/tax-data/scripts/restore_supabase_payload.py` restaura payload por fonte/hash e valida SHA-256 e tamanho.
+
+O arquivo bruto NCM `dfae9ea93ddaa01512009739341c38a01dd7a1d2c3e2fdf089f46dbe970d2fb5` permanece somente como metadado no banco: seu conteúdo não estava no checkout nem nos artifacts do Actions disponíveis. Ele não foi substituído por uma captura diferente. Os demais payloads arquivados foram relidos do banco e tiveram tamanho e hash verificados.

@@ -111,7 +111,7 @@ def build_parser() -> argparse.ArgumentParser:
         "capture-confaz-act", help="captura um ato HTML listado no catÃ¡logo CONFAZ versionado"
     )
     confaz_act.add_argument("url", help="URL oficial que precisa constar no snapshot revalidado do sitemap")
-    confaz_act.add_argument("--catalog-root", type=Path, default=Path("data/tax-data/confaz"))
+    confaz_act.add_argument("--catalog-root", type=Path, default=Path("var/tax-data/confaz"))
     confaz_act.add_argument("--output", type=Path, default=Path("var/tax-data/confaz"))
     confaz_act.add_argument("--timeout", type=float, default=45.0, dest="timeout_seconds")
 
@@ -121,8 +121,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     confaz_references.add_argument("artifact", type=Path, help="HTML CEST bruto já capturado")
     confaz_references.add_argument("observation", type=Path, help="observação imutável da captura CEST")
-    confaz_references.add_argument("--catalog-root", type=Path, default=Path("data/tax-data/confaz"))
-    confaz_references.add_argument("--output", type=Path, default=Path("data/tax-data/confaz"))
+    confaz_references.add_argument("--catalog-root", type=Path, default=Path("var/tax-data/confaz"))
+    confaz_references.add_argument("--output", type=Path, default=Path("var/tax-data/confaz"))
 
     confaz_extract = commands.add_parser(
         "extract-confaz-act",
@@ -130,7 +130,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     confaz_extract.add_argument("artifact", type=Path, help="HTML do ato CONFAZ já arquivado")
     confaz_extract.add_argument("observation", type=Path, help="observação imutável da captura do ato")
-    confaz_extract.add_argument("--output", type=Path, default=Path("data/tax-data/confaz"))
+    confaz_extract.add_argument("--output", type=Path, default=Path("var/tax-data/confaz"))
 
     cest_candidates = commands.add_parser(
         "extract-cest-candidates", help="extrai linhas candidatas do HTML CEST, sem decidir vigência"

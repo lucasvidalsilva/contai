@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
@@ -69,6 +70,7 @@ class LocalNcmRelease:
     content_type: str
     byte_size: int
     raw_path: str
+    raw_content: bytes
     response_headers: dict[str, str]
     dataset: NcmDataset
 
@@ -88,6 +90,7 @@ class LocalTipiRelease:
     content_type: str
     byte_size: int
     raw_path: str
+    raw_content: bytes
     response_headers: dict[str, str]
     dataset: TipiDataset
 
@@ -106,6 +109,7 @@ class LocalIbsCbsRelease:
     content_type: str
     byte_size: int
     raw_path: str
+    raw_content: bytes
     response_headers: dict[str, str]
     dataset: IbsCbsDataset
 
@@ -139,6 +143,81 @@ def result_as_dict(result: StageResult | PublicationResult | ArtifactCatalogResu
         if isinstance(item, (date, datetime)):
             value[key] = item.isoformat().replace("+00:00", "Z")
     return value
+
+
+def archive_source_artifact_payload(
+    connection: Connection[Any], source_key: str, artifact_sha256: str, raw_content: bytes
+) -> None:
+    """Persiste o bruto por hash e confirma idempotência/conteúdo já arquivado."""
+    if hashlib.sha256(raw_content).hexdigest() != artifact_sha256:
+        raise ValueError("conteúdo bruto não corresponde ao SHA-256 informado")
+    connection.execute(
+        """
+        insert into tax_ingest.source_artifact_payload (source_key, artifact_sha256, byte_size, raw_content)
+        values (%s, %s, %s, %s)
+        on conflict (source_key, artifact_sha256) do nothing
+        """,
+        (source_key, artifact_sha256, len(raw_content), raw_content),
+    )
+    stored = connection.execute(
+        """
+        select byte_size, raw_content
+        from tax_ingest.source_artifact_payload
+        where source_key = %s and artifact_sha256 = %s
+        """,
+        (source_key, artifact_sha256),
+    ).fetchone()
+    if stored != (len(raw_content), raw_content):
+        raise ValueError("payload existente diverge do artefato verificado")
+
+
+def archive_source_artifact_observation(
+    connection: Connection[Any],
+    source_key: str,
+    artifact_sha256: str,
+    *,
+    captured_at: datetime,
+    requested_url: str,
+    final_url: str,
+    http_status: int,
+    content_type: str,
+    byte_size: int,
+    response_headers: dict[str, str],
+    status: str = "accepted",
+) -> None:
+    """Registra uma captura, inclusive quando seu bruto já existe por hash."""
+    connection.execute(
+        """
+        insert into tax_ingest.source_artifact_observation (
+          source_key, artifact_sha256, captured_at, requested_url, final_url,
+          http_status, content_type, byte_size, response_headers, status, workflow_run_id
+        ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        on conflict (source_key, artifact_sha256, captured_at) do nothing
+        """,
+        (
+            source_key,
+            artifact_sha256,
+            captured_at,
+            requested_url,
+            final_url,
+            http_status,
+            content_type,
+            byte_size,
+            Jsonb(response_headers),
+            status,
+            os.environ.get("GITHUB_RUN_ID"),
+        ),
+    )
+    stored = connection.execute(
+        """
+        select requested_url, final_url, http_status, content_type, byte_size, response_headers, status
+        from tax_ingest.source_artifact_observation
+        where source_key = %s and artifact_sha256 = %s and captured_at = %s
+        """,
+        (source_key, artifact_sha256, captured_at),
+    ).fetchone()
+    if stored != (requested_url, final_url, http_status, content_type, byte_size, Jsonb(response_headers).obj, status):
+        raise ValueError("observação já registrada diverge da captura verificada")
 
 
 def _object(value: object, context: str) -> dict[str, Any]:
@@ -271,6 +350,7 @@ def load_local_ncm_release(output_dir: Path, release_id: str | None = None) -> L
         content_type=content_type,
         byte_size=byte_size,
         raw_path=raw_path,
+        raw_content=raw,
         response_headers={key: str(value) for key, value in headers.items()},
         dataset=dataset,
     )
@@ -334,6 +414,7 @@ def load_local_ncm_capture(
         content_type=content_type,
         byte_size=byte_size,
         raw_path=raw_path,
+        raw_content=raw,
         response_headers={key: str(value) for key, value in headers.items()},
         dataset=dataset,
     )
@@ -429,6 +510,7 @@ def load_local_tipi_release(
         content_type=content_type,
         byte_size=byte_size,
         raw_path=raw_path,
+        raw_content=raw,
         response_headers={key: str(value) for key, value in headers.items()},
         dataset=dataset,
     )
@@ -549,6 +631,7 @@ def load_local_ibs_cbs_release(
         content_type=content_type,
         byte_size=byte_size,
         raw_path=raw_path,
+        raw_content=raw,
         response_headers={key: str(value) for key, value in headers.items()},
         dataset=dataset,
     )
@@ -610,6 +693,19 @@ def _upsert_source(connection: Connection[Any], local: LocalNcmRelease) -> bool:
             Jsonb(local.response_headers),
         ),
     ).fetchone()
+    archive_source_artifact_payload(connection, _SOURCE_KEY, local.artifact_sha256, local.raw_content)
+    archive_source_artifact_observation(
+        connection,
+        _SOURCE_KEY,
+        local.artifact_sha256,
+        captured_at=local.captured_at,
+        requested_url=local.requested_url,
+        final_url=local.final_url,
+        http_status=local.http_status,
+        content_type=local.content_type,
+        byte_size=local.byte_size,
+        response_headers=local.response_headers,
+    )
     return inserted is not None
 
 
@@ -970,6 +1066,19 @@ def _upsert_tipi_source(connection: Connection[Any], local: LocalTipiRelease) ->
             Jsonb(local.response_headers),
         ),
     )
+    archive_source_artifact_payload(connection, _TIPI_SOURCE_KEY, local.artifact_sha256, local.raw_content)
+    archive_source_artifact_observation(
+        connection,
+        _TIPI_SOURCE_KEY,
+        local.artifact_sha256,
+        captured_at=local.captured_at,
+        requested_url=local.requested_url,
+        final_url=local.final_url,
+        http_status=local.http_status,
+        content_type=local.content_type,
+        byte_size=local.byte_size,
+        response_headers=local.response_headers,
+    )
 
 
 def _record_failed_tipi_run(
@@ -1192,6 +1301,19 @@ def _upsert_ibs_cbs_source(connection: Connection[Any], local: LocalIbsCbsReleas
             local.raw_path,
             Jsonb(local.response_headers),
         ),
+    )
+    archive_source_artifact_payload(connection, _IBS_CBS_SOURCE_KEY, local.artifact_sha256, local.raw_content)
+    archive_source_artifact_observation(
+        connection,
+        _IBS_CBS_SOURCE_KEY,
+        local.artifact_sha256,
+        captured_at=local.captured_at,
+        requested_url=local.requested_url,
+        final_url=local.final_url,
+        http_status=local.http_status,
+        content_type=local.content_type,
+        byte_size=local.byte_size,
+        response_headers=local.response_headers,
     )
 
 

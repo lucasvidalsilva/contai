@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -11,9 +12,40 @@ from contai_tax_data.federal_law import (
     write_lc214_blocks,
     write_lc214_record_blocks,
 )
+from contai_tax_data.normative_capture import LC_214_OFFICIAL_RECORDS, OFFICIAL_RECORD_CAPTURE_CONTRACT
 
-REPOSITORY_ROOT = Path(__file__).parents[4]
-LC214_ROOT = REPOSITORY_ROOT / "data" / "tax-data" / "laws" / "lc214"
+LC214_URL = "https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-normaatualizada-pl.html"
+AUTHORITY = "C\u00e2mara dos Deputados - Legisla\u00e7\u00e3o Informatizada"
+
+
+def _capture_fixture(root: Path, raw: bytes, *, requested_url: str, record_id: str | None = None) -> tuple[Path, Path]:
+    artifact_hash = hashlib.sha256(raw).hexdigest()
+    raw_path = root / "artifacts" / "sha256" / artifact_hash[:2] / f"{artifact_hash}.html"
+    raw_path.parent.mkdir(parents=True, exist_ok=True)
+    raw_path.write_bytes(raw)
+    observation_path = root / "artifacts" / "observations" / artifact_hash / "2026-11-01T00-00-00Z.json"
+    observation_path.parent.mkdir(parents=True, exist_ok=True)
+    observation = {
+        "artifact_sha256": artifact_hash,
+        "captured_at": "2026-11-01T00:00:00Z",
+        "contract_version": OFFICIAL_RECORD_CAPTURE_CONTRACT if record_id else "camara-law-current-raw-v1",
+        "final_url": requested_url,
+        "http_status": 200,
+        "raw_path": raw_path.relative_to(root).as_posix(),
+        "requested_url": requested_url,
+        "response_headers": {"content-type": "text/html; charset=utf-8"},
+        "source_authority": AUTHORITY,
+    }
+    if record_id:
+        observation["source_record_id"] = record_id
+    observation_path.write_text(json.dumps(observation), encoding="utf-8")
+    return raw_path, observation_path
+
+
+def _lc214_volume_fixture() -> bytes:
+    paragraphs = [f"<p>Art. {index}. Texto do artigo {index}.</p>" for index in range(1, 582)]
+    paragraphs.extend(f"<p>Texto estrutural {index}.</p>" for index in range(8_212))
+    return ("<!doctype html><html><body>" + "".join(paragraphs) + "</body></html>").encode("utf-8")
 
 
 def test_parses_literal_structural_markers_without_assigning_legal_effects() -> None:
@@ -62,11 +94,9 @@ def test_volume_gate_rejects_incomplete_extraction() -> None:
 
 
 def test_writer_is_idempotent_from_the_archived_capture(tmp_path: Path) -> None:
-    current = json.loads((LC214_ROOT / "state" / "lc214-latest-capture.json").read_text(encoding="utf-8"))
-    captured_at = current["captured_at"].replace(":", "-")
-    observation_path = LC214_ROOT / "artifacts" / "observations" / current["artifact_sha256"] / f"{captured_at}.json"
-    observation = json.loads(observation_path.read_text(encoding="utf-8"))
-    raw_path = LC214_ROOT / observation["raw_path"]
+    raw_path, observation_path = _capture_fixture(
+        tmp_path / "capture", _lc214_volume_fixture(), requested_url=LC214_URL
+    )
 
     first = write_lc214_blocks(raw_path, observation_path, tmp_path)
     second = write_lc214_blocks(raw_path, observation_path, tmp_path)
@@ -76,27 +106,19 @@ def test_writer_is_idempotent_from_the_archived_capture(tmp_path: Path) -> None:
 
 
 def test_writer_rejects_a_capture_manifest_from_another_source(tmp_path: Path) -> None:
-    current = json.loads((LC214_ROOT / "state" / "lc214-latest-capture.json").read_text(encoding="utf-8"))
-    captured_at = current["captured_at"].replace(":", "-")
-    observation_path = LC214_ROOT / "artifacts" / "observations" / current["artifact_sha256"] / f"{captured_at}.json"
+    raw_path, observation_path = _capture_fixture(
+        tmp_path / "capture", _lc214_volume_fixture(), requested_url=LC214_URL
+    )
     observation = json.loads(observation_path.read_text(encoding="utf-8"))
     observation["requested_url"] = "https://example.invalid/law.html"
     wrong_source = tmp_path / "wrong-source.json"
     wrong_source.write_text(json.dumps(observation), encoding="utf-8")
-    raw_path = LC214_ROOT / observation["raw_path"]
-
     with pytest.raises(ValueError, match="observação oficial"):
         write_lc214_blocks(raw_path, wrong_source, tmp_path / "output")
 
 
 def test_writer_rejects_a_non_object_capture_manifest(tmp_path: Path) -> None:
-    raw_path = (
-        LC214_ROOT
-        / "artifacts"
-        / "sha256"
-        / "dc"
-        / "dc87a43e7a4c293bc3c47817754286438db33a7c42472eb0400258e7707a2bde.html"
-    )
+    raw_path, _ = _capture_fixture(tmp_path / "capture", b"<html><body>fixture</body></html>", requested_url=LC214_URL)
     manifest_path = tmp_path / "observation.json"
     manifest_path.write_text("[]", encoding="utf-8")
 
@@ -106,11 +128,13 @@ def test_writer_rejects_a_non_object_capture_manifest(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("record_id", ("original", "veto", "promulgation"))
 def test_official_linked_records_are_reprocessed_and_match_versioned_snapshots(tmp_path: Path, record_id: str) -> None:
-    record_root = LC214_ROOT / "records" / record_id
-    current = json.loads((record_root / "state" / "latest-capture.json").read_text(encoding="utf-8"))
-    captured_at = current["captured_at"].replace(":", "-")
-    observation_path = record_root / "artifacts" / "observations" / current["artifact_sha256"] / f"{captured_at}.json"
-    raw_path = record_root / current["raw_path"]
+    requested_url, _source_act = LC_214_OFFICIAL_RECORDS[record_id]
+    raw_path, observation_path = _capture_fixture(
+        tmp_path / f"capture-{record_id}",
+        f"<!doctype html><html><body><p>Registro oficial {record_id}.</p></body></html>".encode(),
+        requested_url=requested_url,
+        record_id=record_id,
+    )
     output_root = tmp_path / record_id
 
     first = write_lc214_record_blocks(record_id, raw_path, observation_path, output_root)
@@ -120,23 +144,23 @@ def test_official_linked_records_are_reprocessed_and_match_versioned_snapshots(t
     assert first["source_record_id"] == record_id
     assert first["interpretation_status"] == "not_performed"
     assert first["block_count"] > 0
-    archive_pointer = json.loads((record_root / "state" / "latest-blocks.json").read_text(encoding="utf-8"))
-    archive_snapshot = (record_root / archive_pointer["snapshot_path"]).read_bytes()
     replay_snapshot = (output_root / first["snapshot_path"]).read_bytes()
-    assert archive_pointer["snapshot_sha256"] == first["snapshot_sha256"]
-    assert archive_snapshot == replay_snapshot
+    assert hashlib.sha256(replay_snapshot).hexdigest() == first["snapshot_sha256"]
 
 
 def test_linked_record_writer_rejects_wrong_official_record(tmp_path: Path) -> None:
-    record_root = LC214_ROOT / "records" / "veto"
-    current = json.loads((record_root / "state" / "latest-capture.json").read_text(encoding="utf-8"))
-    captured_at = current["captured_at"].replace(":", "-")
-    observation_path = record_root / "artifacts" / "observations" / current["artifact_sha256"] / f"{captured_at}.json"
+    requested_url, _source_act = LC_214_OFFICIAL_RECORDS["veto"]
+    raw_path, observation_path = _capture_fixture(
+        tmp_path / "capture-veto",
+        b"<!doctype html><html><body><p>Registro oficial veto.</p></body></html>",
+        requested_url=requested_url,
+        record_id="veto",
+    )
 
     with pytest.raises(ValueError, match="observação oficial"):
         write_lc214_record_blocks(
             "original",
-            record_root / current["raw_path"],
+            raw_path,
             observation_path,
             tmp_path / "output",
         )

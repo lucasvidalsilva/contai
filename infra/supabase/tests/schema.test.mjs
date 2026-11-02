@@ -65,6 +65,40 @@ test("migração cria fronteira privada e leitura pública governada", async () 
       authenticated_can_read_block: false,
     },
   ]);
+  const artifactPayloadPrivileges = await db.query(`
+    select
+      has_table_privilege('tax_ingest_writer', 'tax_ingest.source_artifact_payload', 'select') as writer_can_read_payload,
+      has_table_privilege('tax_ingest_writer', 'tax_ingest.source_artifact_payload', 'insert') as writer_can_insert_payload,
+      has_table_privilege('anon', 'tax_ingest.source_artifact_payload', 'select') as anon_can_read_payload,
+      has_table_privilege('authenticated', 'tax_ingest.source_artifact_payload', 'select') as authenticated_can_read_payload,
+      (select relrowsecurity from pg_class where oid = 'tax_ingest.source_artifact_payload'::regclass) as rls_enabled
+  `);
+  assert.deepEqual(artifactPayloadPrivileges.rows, [
+    {
+      writer_can_read_payload: true,
+      writer_can_insert_payload: true,
+      anon_can_read_payload: false,
+      authenticated_can_read_payload: false,
+      rls_enabled: true,
+    },
+  ]);
+  const artifactObservationPrivileges = await db.query(`
+    select
+      has_table_privilege('tax_ingest_writer', 'tax_ingest.source_artifact_observation', 'select') as writer_can_read_observation,
+      has_table_privilege('tax_ingest_writer', 'tax_ingest.source_artifact_observation', 'insert') as writer_can_insert_observation,
+      has_table_privilege('anon', 'tax_ingest.source_artifact_observation', 'select') as anon_can_read_observation,
+      has_table_privilege('authenticated', 'tax_ingest.source_artifact_observation', 'select') as authenticated_can_read_observation,
+      (select relrowsecurity from pg_class where oid = 'tax_ingest.source_artifact_observation'::regclass) as rls_enabled
+  `);
+  assert.deepEqual(artifactObservationPrivileges.rows, [
+    {
+      writer_can_read_observation: true,
+      writer_can_insert_observation: true,
+      anon_can_read_observation: false,
+      authenticated_can_read_observation: false,
+      rls_enabled: true,
+    },
+  ]);
   const legalTables = await db.query(`
     select table_name from information_schema.tables
     where table_schema = 'tax_public' and table_name like 'legal_%'

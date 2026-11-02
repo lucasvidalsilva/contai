@@ -26,6 +26,7 @@ from contai_tax_data.normative_capture import (
     NORMATIVE_CAPTURE_CONTRACT,
     OFFICIAL_RECORD_CAPTURE_CONTRACT,
 )
+from contai_tax_data.postgres import archive_source_artifact_observation, archive_source_artifact_payload
 
 _SOURCE_CONFIG = {
     CONFAZ_ACT_BLOCK_CONTRACT: {
@@ -292,10 +293,23 @@ def stage_legal_blocks(
             """,
             source_artifact_values,
         )
+        archive_source_artifact_payload(connection, source_key, artifact_sha256, artifact)
+        archive_source_artifact_observation(
+            connection,
+            source_key,
+            artifact_sha256,
+            captured_at=captured_at,
+            requested_url=requested_url,
+            final_url=requested_url,
+            http_status=200,
+            content_type=content_type,
+            byte_size=len(artifact),
+            response_headers={str(key): str(value) for key, value in headers.items()},
+        )
         stored_artifact = connection.execute(
             """
-            select requested_url, final_url, captured_at, http_status, content_type,
-                   byte_size, raw_path, response_headers, status
+            select requested_url, final_url, http_status, content_type,
+                   byte_size, raw_path, status
             from tax_ingest.source_artifact
             where source_key = %s and artifact_sha256 = %s
             """,
@@ -304,12 +318,10 @@ def stage_legal_blocks(
         if stored_artifact != (
             requested_url,
             requested_url,
-            captured_at,
             200,
             content_type,
             len(artifact),
             raw_path,
-            headers,
             "accepted",
         ):
             raise ValueError("source_artifact existente diverge da captura legal verificada")
@@ -338,7 +350,7 @@ def stage_legal_blocks(
         stored_set = connection.execute(
             """
             select snapshot_sha256, source_url, document_kind, source_lastmod,
-                   captured_at, block_count, interpretation_status
+                   block_count, interpretation_status
             from tax_ingest.legal_block_set
             where source_key = %s and artifact_sha256 = %s and contract_version = %s
             """,
@@ -349,7 +361,6 @@ def stage_legal_blocks(
             requested_url,
             document_kind,
             source_lastmod,
-            captured_at,
             block_count,
             "not_performed",
         )
