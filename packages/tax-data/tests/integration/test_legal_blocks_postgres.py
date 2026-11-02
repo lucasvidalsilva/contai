@@ -41,6 +41,8 @@ def _official_captures() -> list[tuple[Path, ...]]:
     captures: list[tuple[Path, ...]] = []
 
     confaz_root = DATA_ROOT / "confaz"
+    if not (confaz_root / "acts").is_dir():
+        pytest.skip("capturas legais locais ausentes; restaure-as do arquivo Supabase antes da integração")
     for act_root in sorted((confaz_root / "acts").iterdir()):
         if not act_root.is_dir() or not (act_root / "state" / "latest-capture.json").is_file():
             continue
