@@ -1,0 +1,62 @@
+{
+  "updated_at": "2026-11-02T21:29:24Z",
+  "repository": "lucasvidalsilva/contai",
+  "source_workflows": [
+    {
+      "source": "NCM",
+      "run_id": 41518822131,
+      "status": "success",
+      "url": "https://github.com/lucasvidalsilva/contai/actions/runs/41518822131",
+      "artifact_retention_days": 14,
+      "artifact_expires_at": "2026-11-16T20:24:23Z"
+    },
+    {
+      "source": "TIPI",
+      "run_id": 41517153762,
+      "status": "success",
+      "url": "https://github.com/lucasvidalsilva/contai/actions/runs/41517153762",
+      "artifact_retention_days": 14,
+      "artifact_expires_at": "2026-11-16T20:13:10Z"
+    },
+    {
+      "source": "IBS/CBS",
+      "run_id": 41517298576,
+      "status": "success",
+      "url": "https://github.com/lucasvidalsilva/contai/actions/runs/41517298576",
+      "artifact_retention_days": 14,
+      "artifact_expires_at": "2026-11-16T20:14:07Z"
+    },
+    {
+      "source": "LC 214",
+      "run_id": 41517823698,
+      "status": "success",
+      "url": "https://github.com/lucasvidalsilva/contai/actions/runs/41517823698",
+      "artifact_retention_days": 14,
+      "artifact_expires_at": "2026-11-16T20:17:36Z"
+    },
+    {
+      "source": "CEST",
+      "run_id": 41528271509,
+      "status": "success",
+      "url": "https://github.com/lucasvidalsilva/contai/actions/runs/41528271509",
+      "artifact_retention_days": 14,
+      "artifact_expires_at": "2026-11-16T21:26:08Z"
+    },
+    {
+      "source": "CONFAZ",
+      "run_id": 41528741312,
+      "status": "success",
+      "url": "https://github.com/lucasvidalsilva/contai/actions/runs/41528741312",
+      "artifact_retention_days": 14,
+      "artifact_expires_at": "2026-11-16T21:29:18Z"
+    }
+  ],
+  "supabase_archive": {
+    "project": "contai-dev",
+    "schema": "tax_ingest",
+    "metadata_artifacts": 35,
+    "payloads_archived": 34,
+    "payload_bytes": 20563634,
+    "missing_payload_sha256": "dfae9ea93ddaa01512009739341c38a01dd7a1d2c3e2fdf089f46dbe970d2fb5"
+  }
+}

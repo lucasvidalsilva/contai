@@ -63,6 +63,14 @@ def test_stage_publish_idempotency_access_and_atomic_rollback(tmp_path: Path) ->
             "select count(*) from tax_ingest.source_artifact where source_key = %s", ("siscomex-ncm",)
         ).fetchone() == (2,)
         assert connection.execute(
+            "select byte_size, raw_content from tax_ingest.source_artifact_payload where artifact_sha256 = %s",
+            (recapture.artifact_sha256,),
+        ).fetchone() == (len(header_only), header_only)
+        assert connection.execute(
+            "select count(*) from tax_ingest.source_artifact_observation where source_key = %s",
+            ("siscomex-ncm",),
+        ).fetchone() == (2,)
+        assert connection.execute(
             "select count(*) from tax_ingest.ingestion_run where artifact_sha256 = %s",
             (recapture.artifact_sha256,),
         ).fetchone() == (1,)
@@ -77,6 +85,12 @@ def test_stage_publish_idempotency_access_and_atomic_rollback(tmp_path: Path) ->
         with pytest.raises(psycopg.errors.InsufficientPrivilege), connection.transaction():
             connection.execute("set local role anon")
             connection.execute("select * from tax_ingest.source_registry").fetchall()
+        with pytest.raises(psycopg.errors.InsufficientPrivilege), connection.transaction():
+            connection.execute("set local role anon")
+            connection.execute("select * from tax_ingest.source_artifact_payload").fetchall()
+        with pytest.raises(psycopg.errors.InsufficientPrivilege), connection.transaction():
+            connection.execute("set local role anon")
+            connection.execute("select * from tax_ingest.source_artifact_observation").fetchall()
         connection.commit()
 
         changed = SAMPLE.read_text(encoding="utf-8").replace("Animais vivos.", "Animais vivos e descritos.").encode()

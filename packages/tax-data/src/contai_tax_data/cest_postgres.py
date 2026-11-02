@@ -19,6 +19,7 @@ from contai_tax_data.cest_candidates import (
     parse_cest_candidates,
 )
 from contai_tax_data.cest_capture import CEST_SOURCE_URL
+from contai_tax_data.postgres import archive_source_artifact_observation, archive_source_artifact_payload
 
 _SOURCE_KEY = "confaz-cest"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -186,6 +187,19 @@ def stage_cest_candidates(
                 raw_path,
                 Jsonb(headers),
             ),
+        )
+        archive_source_artifact_payload(connection, _SOURCE_KEY, artifact_sha256, raw_body)
+        archive_source_artifact_observation(
+            connection,
+            _SOURCE_KEY,
+            artifact_sha256,
+            captured_at=captured_at,
+            requested_url=requested_url,
+            final_url=final_url,
+            http_status=http_status,
+            content_type="text/html",
+            byte_size=byte_size,
+            response_headers={key: str(value) for key, value in headers.items()},
         )
         inserted = connection.execute(
             """

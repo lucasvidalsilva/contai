@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -13,7 +12,7 @@ from contai_tax_data.legal_blocks_postgres import stage_legal_blocks
 DATABASE_URL = os.environ.get("CONTAI_TEST_DATABASE_URL")
 pytestmark = pytest.mark.skipif(DATABASE_URL is None, reason="PostgreSQL isolado nao iniciado")
 REPOSITORY_ROOT = Path(__file__).parents[4]
-DATA_ROOT = REPOSITORY_ROOT / "data" / "tax-data"
+DATA_ROOT = REPOSITORY_ROOT / "var" / "tax-data"
 
 
 def _capture_paths(
@@ -42,18 +41,11 @@ def _official_captures() -> list[tuple[Path, ...]]:
     captures: list[tuple[Path, ...]] = []
 
     confaz_root = DATA_ROOT / "confaz"
-    reference_path = (
-        confaz_root
-        / "references"
-        / "7c2bdc9db1ceb11faaa56b2582e77e5a1bcb66e51cd62b6de0f155a78359c45a"
-        / "confaz-amendment-reference-v1"
-        / "confaz-amendment-references.jsonl"
-    )
-    references = [json.loads(line) for line in reference_path.read_text(encoding="utf-8").splitlines()]
-    for row in references:
-        if row["catalog_status"] != "matched":
+    if not (confaz_root / "acts").is_dir():
+        pytest.skip("capturas legais locais ausentes; restaure-as do arquivo Supabase antes da integração")
+    for act_root in sorted((confaz_root / "acts").iterdir()):
+        if not act_root.is_dir() or not (act_root / "state" / "latest-capture.json").is_file():
             continue
-        act_root = confaz_root / "acts" / hashlib.sha256(row["catalog_url"].encode()).hexdigest()
         captures.append(
             _capture_paths(
                 confaz_root,
