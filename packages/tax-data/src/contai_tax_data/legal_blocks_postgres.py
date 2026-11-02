@@ -207,7 +207,9 @@ def stage_legal_blocks(
     if observation.get("raw_path") != raw_path or len(artifact) != observation.get("byte_size"):
         raise ValueError("raw_path/tamanho do bruto diverge da observação legal")
     headers = observation.get("response_headers")
-    content_type = headers.get("content-type", "") if isinstance(headers, dict) else ""
+    if not isinstance(headers, dict):
+        raise ValueError("response_headers da observação legal precisa ser um objeto")
+    content_type = headers.get("content-type", "")
     if "text/html" not in content_type.lower() or "charset=utf-8" not in content_type.lower().replace(" ", ""):
         raise ValueError("observação legal não confirma HTML UTF-8")
 
