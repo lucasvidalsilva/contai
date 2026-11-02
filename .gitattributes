@@ -1,1 +1,2 @@
 data/tax-data/** -text whitespace=-blank-at-eol,-space-before-tab
+data/tax-data/**/*.html -diff

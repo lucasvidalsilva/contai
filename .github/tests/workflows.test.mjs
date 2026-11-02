@@ -14,11 +14,12 @@ async function readWorkflow(name) {
   return value;
 }
 
-test("CI executa em pull requests e push para main sem secrets", async () => {
+test("CI executa em pull requests e qualquer push de branch sem secrets", async () => {
   const workflow = await readWorkflow("ci.yml");
 
   assert.ok(Object.hasOwn(workflow.on, "pull_request"));
-  assert.deepEqual(workflow.on.push.branches, ["main"]);
+  assert.ok(Object.hasOwn(workflow.on, "push"));
+  assert.equal(workflow.on.push, null, "push sem filtro executa CI nas branches de trabalho");
   assert.ok(workflow.jobs["tax-data"].steps.some((step) => step.run?.includes("pytest")));
   assert.ok(workflow.jobs["tax-data"].steps.some((step) => step.run?.includes("test:db-integration")));
   assert.ok(workflow.jobs["tax-data"].steps.some((step) => step.run?.includes("test:workflows")));
