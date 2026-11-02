@@ -5,6 +5,9 @@ description = "Verificações locais e determinísticas de NF-e para o contAI"
 requires-python = ">=3.12,<3.13"
 dependencies = []
 
+[project.scripts]
+contai-fiscal-engine = "contai_fiscal_engine.cli:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
