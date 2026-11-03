@@ -34,6 +34,7 @@ test("CI executa em pull requests e qualquer push de branch sem secrets", async 
   assert.ok(desktop.steps.some((step) => step.run?.includes("npm --prefix apps/desktop run test")));
   assert.ok(desktop.steps.some((step) => step.run?.includes("sidecar:build")));
   assert.ok(desktop.steps.some((step) => step.run?.includes("sidecar:verify")));
+  assert.ok(desktop.steps.some((step) => step.run?.includes("testdata:verify")));
   assert.ok(desktop.steps.some((step) => step.run?.includes("cargo test --locked")));
   assert.ok(desktop.steps.some((step) => step.run?.includes("tauri -- build --no-bundle")));
 });

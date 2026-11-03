@@ -97,6 +97,8 @@ jobs:
         run: |
           npm --prefix apps/desktop run sidecar:build
           npm --prefix apps/desktop run sidecar:verify
+          npm --prefix apps/desktop run testdata:build
+          npm --prefix apps/desktop run testdata:verify
 
       - name: Check and test Rust backend
         run: |

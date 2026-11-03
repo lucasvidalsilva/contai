@@ -3,6 +3,9 @@
 Aplicativo Tauri v2 + React/TypeScript para conferência fiscal local. O primeiro corte aceita uma NF-e modelo 55 por
 vez e chama o `contai-fiscal-engine` empacotado como sidecar; o XML não é enviado a servidores.
 
+O pacote atual suporta Windows 10/11 x64. O instalador NSIS inclui o WebView2 offline, instala por usuário e não exige
+Python, Rust, Node.js ou privilégios administrativos na máquina de destino.
+
 ## Preparação no Windows
 
 - Microsoft C++ Build Tools com o workload Desktop development with C++;
@@ -14,6 +17,8 @@ uv sync --locked --project packages/fiscal-engine
 npm ci --prefix apps/desktop
 npm --prefix apps/desktop run sidecar:build
 npm --prefix apps/desktop run sidecar:verify
+npm --prefix apps/desktop run testdata:build
+npm --prefix apps/desktop run testdata:verify
 npm --prefix apps/desktop run desktop:dev
 ```
 
@@ -27,6 +32,20 @@ npm --prefix apps/desktop run build
 cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml -- --check
 cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
 ```
+
+## Instalador de teste
+
+```powershell
+npm --prefix apps/desktop run installer:build
+npm --prefix apps/desktop run installer:verify
+```
+
+O instalador é criado em
+`apps/desktop/src-tauri/target/release/bundle/nsis/contAI_0.1.0_x64-setup.exe`. A matriz para teste manual fica em
+`apps/desktop/var/test-invoices/`.
+
+O pacote local ainda não possui assinatura de código e pode acionar o SmartScreen. Não distribuir publicamente antes
+da assinatura, dos testes em Windows 10/11 limpos e da aprovação visual do responsável pelo produto.
 
 O executável do sidecar é gerado em `src-tauri/binaries/` e não é versionado. Consulte
 [`docs/03-aplicativo.md`](../../docs/03-aplicativo.md) para escopo, critérios e limites de segurança.
