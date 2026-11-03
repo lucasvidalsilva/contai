@@ -117,7 +117,7 @@ A execução será incremental. **Cada etapa precisa de critérios de aceite e t
 | **01 · Pipeline tributária** | Extrair, validar, versionar e publicar dados oficiais com Python, GitHub Actions e Supabase PostgreSQL. | **Marco operacional concluído no Supabase `contai-dev`: NCM, TIPI e IBS/CBS publicados; CEST privado como candidato `unresolved`; LC 214 e 24 atos CONFAZ em staging estrutural (12.966 blocos), sem interpretação jurídica. As seis fontes tiveram execução verde; o índice local guarda somente esses runs. O Supabase mantém proveniência e 34 payloads brutos verificados. Um artefato NCM histórico possui metadado, mas não bytes arquivados. A cobertura jurídica continua parcial, e não houve carga em produção.** |
 | **02 · Motor fiscal** | Validar documentos sintéticos de NF-e e produzir alertas fundamentados. | **Concluída no escopo `fiscal-engine-v1`: XSD oficial PL 010g v1.03 validado offline, regras I11-10/I11-20 e W07/W08/W09/W10/W15, catálogo NCM temporal, CLI local, fixture sintética e regressões determinísticas. A cobertura e os limites estão em [docs/02-motor-fiscal.md](docs/02-motor-fiscal.md).** |
 | **03 · Aplicativo** | Criar a experiência de conferência local com Tauri. | Planejada |
-| **04 · Landing page** | Apresentar o produto e disponibilizar a distribuição. | Planejada |
+| **04 · Landing page** | Apresentar o produto e disponibilizar a distribuição. | **Em andamento:** landing em Next.js com CTA **Em breve**, narrativa de produto e preview na Vercel. Critérios em [docs/04-landing-page.md](docs/04-landing-page.md). |
 
 A documentação técnica e os critérios de cada etapa ficarão em [`docs/`](docs/). As regras de colaboração e desenvolvimento serão definidas em [`AGENTS.md`](AGENTS.md) quando esses arquivos forem criados.
 
