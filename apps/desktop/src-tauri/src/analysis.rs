@@ -166,7 +166,7 @@ mod tests {
 
     use tempfile::Builder;
 
-    use super::{parse_sidecar_output, validate_invoice_path};
+    use super::{MAX_XML_BYTES, parse_sidecar_output, validate_invoice_path};
 
     const VALID_REPORT: &[u8] = br#"{
         "contract_version":"fiscal-engine-v1",
@@ -196,6 +196,25 @@ mod tests {
 
         assert_eq!(error.code, "invalid_invoice_file");
         assert!(!error.message.contains(file.path().to_str().unwrap()));
+    }
+
+    #[test]
+    fn rejects_empty_xml_at_desktop_boundary() {
+        let file = Builder::new().suffix(".xml").tempfile().unwrap();
+
+        let error = validate_invoice_path(file.path().to_path_buf()).unwrap_err();
+
+        assert_eq!(error.code, "invalid_invoice_size");
+    }
+
+    #[test]
+    fn rejects_xml_above_desktop_size_limit() {
+        let mut file = Builder::new().suffix(".xml").tempfile().unwrap();
+        file.as_file_mut().set_len(MAX_XML_BYTES + 1).unwrap();
+
+        let error = validate_invoice_path(file.path().to_path_buf()).unwrap_err();
+
+        assert_eq!(error.code, "invalid_invoice_size");
     }
 
     #[test]
