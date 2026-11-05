@@ -1,0 +1,49 @@
+{
+  "name": "contai-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run check && vite build",
+    "check": "tsc --noEmit -p tsconfig.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false",
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "testdata:build": "uv run --project ../../packages/fiscal-engine python scripts/generate-test-invoices.py",
+    "testdata:verify": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-test-invoices.ps1",
+    "sidecar:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-sidecar.ps1",
+    "sidecar:verify": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-sidecar.ps1",
+    "desktop:dev": "npm run sidecar:build && tauri dev",
+    "desktop:build": "npm run sidecar:build && tauri build",
+    "installer:build": "npm run sidecar:build && npm run testdata:build && tauri build",
+    "installer:verify": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-installer.ps1",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.12.4",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@tauri-apps/cli": "2.12.4",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.8",
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.2.1",
+    "eslint": "10.14.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.7",
+    "globals": "17.14.0",
+    "jsdom": "29.1.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vite": "8.3.5",
+    "vitest": "5.1.0"
+  }
+}

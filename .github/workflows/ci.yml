@@ -62,3 +62,48 @@ jobs:
 
       - name: Validate GitHub Actions workflows
         run: npm run test:workflows
+
+  desktop:
+    name: Tauri desktop application
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: packages/fiscal-engine/uv.lock
+
+      - name: Install locked dependencies
+        run: |
+          uv sync --locked --project packages/fiscal-engine
+          npm ci --prefix apps/desktop --ignore-scripts --no-audit --no-fund
+
+      - name: Check and test frontend
+        run: |
+          npm --prefix apps/desktop run check
+          npm --prefix apps/desktop run lint
+          npm --prefix apps/desktop run test
+          npm --prefix apps/desktop run build
+
+      - name: Build and verify fiscal sidecar
+        run: |
+          npm --prefix apps/desktop run sidecar:build
+          npm --prefix apps/desktop run sidecar:verify
+          npm --prefix apps/desktop run testdata:build
+          npm --prefix apps/desktop run testdata:verify
+
+      - name: Check and test Rust backend
+        run: |
+          cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml -- --check
+          cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
+
+      - name: Compile Tauri release
+        run: npm --prefix apps/desktop run tauri -- build --no-bundle

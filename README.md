@@ -35,7 +35,7 @@ flowchart LR
 
 **O que já existe:** pipelines em Python executadas por GitHub Actions, persistência no Supabase PostgreSQL, controles de procedência e atualização, além de um motor fiscal inicial com validação estrutural e verificações determinísticas de NF-e modelo 55.
 
-**O que vem agora:** reunir isso em um aplicativo desktop com **Tauri**, para conferir documentos localmente, visualizar divergências e acompanhar a revisão.
+**Em desenvolvimento:** um aplicativo desktop com **Tauri** para conferir documentos localmente, visualizar divergências e acompanhar a revisão. O corte atual já cobre XML individual e lote ZIP, mas ainda não está pronto para distribuição pública.
 
 **Mais adiante:** ferramentas de consulta e conectores de IA sobre as referências fiscais, com fontes identificadas, permissões controladas e o contador no centro da decisão.
 
@@ -49,11 +49,11 @@ Uma NF-e pode conter dados sensíveis de empresas e pessoas. Por isso, projetamo
 | --- | --- |
 | **Dados tributários** — Python, GitHub Actions e Supabase | Implementada em ambiente de desenvolvimento, com cobertura parcial e controles de versionamento |
 | **Motor fiscal** — validação XSD e regras de consistência | Primeira versão implementada e testada com NF-e sintética |
-| **Aplicativo desktop** — Tauri | Próxima etapa |
+| **Aplicativo desktop** — Tauri | Em desenvolvimento; primeiro corte local para Windows, ainda sem distribuição pública |
 | **Landing page** — Next.js | Em desenvolvimento |
 | **Conectores com IA** | Planejados |
 
-Acompanhe o projeto em [`docs/`](docs/) ou examine o código em [`packages/`](packages/). A documentação das duas primeiras etapas está em [`pipeline tributária`](docs/01-pipeline-tributaria.md) e [`motor fiscal`](docs/02-motor-fiscal.md).
+Acompanhe o projeto em [`docs/`](docs/) ou examine o código em [`packages/`](packages/) e [`apps/`](apps/). A documentação das etapas está em [`pipeline tributária`](docs/01-pipeline-tributaria.md), [`motor fiscal`](docs/02-motor-fiscal.md) e [`aplicativo desktop`](docs/03-aplicativo.md).
 
 ---
 

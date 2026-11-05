@@ -28,6 +28,15 @@ test("CI executa em pull requests e qualquer push de branch sem secrets", async 
   assert.ok(workflow.jobs["tax-data"].steps.some((step) => step.run?.includes("uv run --project packages/fiscal-engine pytest")));
   assert.ok(workflow.jobs["tax-data"].steps.some((step) => step.run?.includes("test:db-integration")));
   assert.ok(workflow.jobs["tax-data"].steps.some((step) => step.run?.includes("test:workflows")));
+
+  const desktop = workflow.jobs.desktop;
+  assert.equal(desktop["runs-on"], "windows-latest");
+  assert.ok(desktop.steps.some((step) => step.run?.includes("npm --prefix apps/desktop run test")));
+  assert.ok(desktop.steps.some((step) => step.run?.includes("sidecar:build")));
+  assert.ok(desktop.steps.some((step) => step.run?.includes("sidecar:verify")));
+  assert.ok(desktop.steps.some((step) => step.run?.includes("testdata:verify")));
+  assert.ok(desktop.steps.some((step) => step.run?.includes("cargo test --locked")));
+  assert.ok(desktop.steps.some((step) => step.run?.includes("tauri -- build --no-bundle")));
 });
 
 test("captura NCM é agendada e manual, sem acesso de publicação", async () => {
