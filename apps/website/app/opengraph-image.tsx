@@ -95,8 +95,10 @@ export default function OpenGraphImage() {
 					justifyContent: "space-between",
 				}}
 			>
-				<span>Pipeline Python · PostgreSQL · motor fiscal offline</span>
-				<span style={{ color: "#141b2b", fontWeight: 700 }}>Em breve</span>
+				<span>Pipeline Python · motor fiscal · conector de IA planejado</span>
+				<span style={{ color: "#141b2b", fontWeight: 700 }}>
+					Em desenvolvimento
+				</span>
 			</div>
 		</div>,
 		size,

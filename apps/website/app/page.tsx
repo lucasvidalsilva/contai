@@ -197,13 +197,13 @@ const roadmap = [
 	{
 		name: "Aplicativo para Windows",
 		state: "planned",
-		label: "Próxima etapa",
+		label: "Em desenvolvimento",
 		text: "Conferência local de lotes de NF-e com Tauri, React e TypeScript. O histórico fica em SQLite, no seu computador.",
 	},
 	{
 		name: "Conector de IA",
 		state: "planned",
-		label: "Em desenho",
+		label: "Planejado",
 		text: "Contrato somente de leitura sobre a base pública. Nenhuma integração com assistentes foi validada ou publicada.",
 	},
 ];
@@ -257,13 +257,15 @@ export default function Home() {
 					<a href="#etapas">Entregas</a>
 				</nav>
 				<span className="header-status">
-					<span aria-hidden="true" /> Em desenvolvimento
+					<span aria-hidden="true" /> Aplicativo em desenvolvimento
 				</span>
 			</header>
 
 			<section className="hero shell" id="inicio">
 				<div className="hero__copy" id="conteudo">
-					<p className="hero__eyebrow">Engenharia fiscal · projeto aberto</p>
+					<p className="hero__eyebrow">
+						Aplicativo para Windows · em desenvolvimento
+					</p>
 					<h1>Da fonte oficial à divergência na NF-e.</h1>
 					<span aria-hidden="true" className="total-rule" />
 					<p className="hero__lead">
@@ -280,13 +282,14 @@ export default function Home() {
 						>
 							Examinar o projeto
 						</a>
-						<a className="text-link" href="#etapas">
-							Ver o que já funciona
+						<a className="text-link" href="#conector">
+							Ver conector de IA planejado
 						</a>
 					</div>
 					<p className="hero__meta">
-						Python, PostgreSQL, GitHub Actions, Next.js e um motor fiscal
-						offline. Aplicativo Windows ainda não distribuído.
+						A base tributária e o motor fiscal já funcionam. A interface desktop
+						e o conector de IA estão em desenvolvimento e ainda não foram
+						distribuídos.
 					</p>
 				</div>
 				<Ledger />
@@ -594,7 +597,7 @@ export default function Home() {
 							Examinar código e decisões
 						</a>
 						<span className="closing__status">
-							Aplicativo para Windows · em breve
+							Aplicativo Windows + conector de IA · em desenvolvimento
 						</span>
 					</div>
 					<p className="legal-note">

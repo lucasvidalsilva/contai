@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 	),
 	title: "contAI — engenharia fiscal da fonte à evidência",
 	description:
-		"Pipeline tributária em Python, PostgreSQL versionado e motor fiscal offline para transformar NF-e em alertas com evidências reproduzíveis.",
+		"Aplicativo fiscal em desenvolvimento com pipeline Python, PostgreSQL versionado, motor offline e conector de IA planejado.",
 	applicationName: "contAI",
 	keywords: [
 		"NF-e",
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
 	openGraph: {
 		title: "contAI: da fonte oficial à divergência na NF-e",
 		description:
-			"Um sistema de ponta a ponta: fontes oficiais, pipeline em Python, PostgreSQL e regras fiscais determinísticas com evidências.",
+			"Aplicativo em desenvolvimento: fontes oficiais, pipeline Python, PostgreSQL, regras fiscais e conector de IA planejado.",
 		locale: "pt_BR",
 		type: "website",
 	},
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
 		card: "summary_large_image",
 		title: "contAI: da fonte oficial à divergência na NF-e",
 		description:
-			"Pipeline tributária, PostgreSQL versionado e motor fiscal offline com limites explícitos.",
+			"Aplicativo fiscal em desenvolvimento com motor offline e conector de IA planejado.",
 	},
 };
 
