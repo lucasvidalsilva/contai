@@ -18,6 +18,21 @@ def replace_once(payload: bytes, original: bytes, replacement: bytes) -> bytes:
     return payload.replace(original, replacement, 1)
 
 
+def replace_icms_total(payload: bytes, field: str, value: str) -> bytes:
+    """Altera somente o total da NF-e, sem tocar nos valores dos itens."""
+    opening = b"<ICMSTot>"
+    closing = b"</ICMSTot>"
+    if payload.count(opening) != 1 or payload.count(closing) != 1:
+        raise ValueError("bloco ICMSTot ausente ou duplicado")
+    prefix, _, remainder = payload.partition(opening)
+    total, _, suffix = remainder.partition(closing)
+    original = f"<{field}>0.00</{field}>".encode()
+    if field == "vProd":
+        original = b"<vProd>10.00</vProd>"
+    replacement = f"<{field}>{value}</{field}>".encode()
+    return prefix + opening + replace_once(total, original, replacement) + closing + suffix
+
+
 def case(
     file_name: str,
     payload: bytes,
@@ -40,18 +55,10 @@ def main() -> None:
     base = SOURCE.read_bytes()
     OUTPUT.mkdir(parents=True, exist_ok=True)
 
-    product_total = replace_once(
-        base,
-        b"<vProd>10.00</vProd>\n        <vFrete>0.00</vFrete>",
-        b"<vProd>11.00</vProd>\n        <vFrete>0.00</vFrete>",
-    )
+    product_total = replace_icms_total(base, "vProd", "11.00")
     component_totals = base
     for field in ("vFrete", "vSeg", "vDesc", "vOutro"):
-        component_totals = replace_once(
-            component_totals,
-            f"<{field}>0.00</{field}>".encode(),
-            f"<{field}>1.00</{field}>".encode(),
-        )
+        component_totals = replace_icms_total(component_totals, field, "1.00")
     item_value = replace_once(base, b"<qCom>2.0000</qCom>", b"<qCom>3.0000</qCom>")
     invalid_schema = replace_once(base, b"      <natOp>VENDA SINTETICA PARA TESTES</natOp>\n", b"")
     unsupported_model = replace_once(base, b"<mod>55</mod>", b"<mod>65</mod>")
