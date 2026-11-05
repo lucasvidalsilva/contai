@@ -60,7 +60,7 @@ def main() -> None:
     for field in ("vFrete", "vSeg", "vDesc", "vOutro"):
         component_totals = replace_icms_total(component_totals, field, "1.00")
     item_value = replace_once(base, b"<qCom>2.0000</qCom>", b"<qCom>3.0000</qCom>")
-    invalid_schema = replace_once(base, b"      <natOp>VENDA SINTETICA PARA TESTES</natOp>\n", b"")
+    invalid_schema = replace_once(base, b"<natOp>VENDA SINTETICA PARA TESTES</natOp>", b"",)
     unsupported_model = replace_once(base, b"<mod>55</mod>", b"<mod>65</mod>")
     missing_namespace = replace_once(base, b' xmlns="http://www.portalfiscal.inf.br/nfe"', b"")
     utf16 = base.decode("utf-8").encode("utf-16")
