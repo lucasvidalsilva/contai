@@ -17,6 +17,7 @@ Execute os comandos dentro de `apps/website/`.
 ```powershell
 npm run check
 npm run lint
+npm run format:check
 npm run build
 ```
 
