@@ -2,33 +2,50 @@
 
 ## Objetivo e estado
 
-Apresentar o contAI com clareza e personalidade, explicar o valor do produto sem prometer conformidade integral e
-preparar uma presença pública na Vercel. A página usa Next.js, não coleta dados e mantém o CTA **Em breve**.
+Apresentar o contAI como produto e como entrega de engenharia: partir da rotina fiscal, mostrar o fluxo completo entre
+fonte, pipeline, banco, motor e interface, e separar com precisão o que funciona do que ainda está em desenho.
 
-**Estado:** em andamento. A primeira entrega cobre a landing responsiva, conteúdo, metadados e deploy de preview. A
-publicação em domínio próprio e a troca do CTA dependem da disponibilidade aprovada do aplicativo.
+**Estado:** implementação local em validação. A publicação de preview e qualquer alteração em produção continuam
+dependendo de autorização explícita.
+
+## Posicionamento
+
+A página prioriza as evidências que o repositório consegue sustentar:
+
+- problema operacional antes da escolha de tecnologia;
+- seis fontes oficiais com execução verde no GitHub Actions;
+- 34 payloads brutos preservados e verificados no ambiente de desenvolvimento;
+- 12.966 blocos legais em staging privado, sem interpretação jurídica automática;
+- motor fiscal offline com sete verificações determinísticas e cobertura temporal declarada;
+- aplicativo desktop como próxima etapa e conector de IA apenas como contrato ilustrativo.
+
+O conector não é apresentado como funcional. Nomes de consultas, versões fictícias e afirmações de compatibilidade por
+plano foram removidos. A simulação demonstra procedência e a recusa de extrapolar um snapshot NCM para uma data sem
+cobertura.
 
 ## Direção visual
 
-- linguagem editorial de alto contraste, com tipografia serifada nos títulos e sans-serif nos dados;
-- composição em osso, carvão e azul-cobalto, sem gradientes, vidro, mascotes ou ilustrações genéricas de IA;
-- prévia ilustrativa do produto construída com elementos de interface, sem expor XML ou dados reais;
-- ritmo de página baseado em narrativa, não em uma sequência de cards comerciais repetidos;
-- referências de `ref_design/` usadas somente para direção; os arquivos não entram no bundle nem no Git.
+- azul, ink e canvas alinhados à identidade documentada do projeto;
+- Bricolage Grotesque nos títulos e IBM Plex Mono em dados e contratos;
+- linguagem visual inspirada na conferência do contador: papel pautado, vistos, círculo de lápis e total sublinhado;
+- narrativa responsiva com componentes interativos que servem à explicação do produto;
+- animações desativadas ou resolvidas imediatamente com `prefers-reduced-motion`;
+- sem imagens de clientes, XML real, testemunhos, métricas inventadas ou logos não oficiais.
 
-## Critérios do primeiro corte
+## Critérios desta entrega
 
 - [x] aplicação Next.js independente em `apps/website/`;
-- [x] conteúdo coerente com pipeline, motor e aplicativo existentes;
-- [x] CTA não interativo **Em breve**, sem formulário ou falsa lista de espera;
-- [x] layout responsivo com navegação semântica, foco visível e redução de movimento;
-- [x] limite de conformidade e papel da revisão profissional explícitos;
-- [x] typecheck, lint e build de produção aprovados;
-- [ ] inspeção visual em desktop e viewport móvel;
+- [x] CTA para o repositório e leitura clara do que já funciona;
+- [x] dados e estados coerentes com `docs/01-pipeline-tributaria.md` e `docs/02-motor-fiscal.md`;
+- [x] limites de conformidade, cobertura temporal e revisão profissional explícitos;
+- [x] conector rotulado como simulação, sem API ou compatibilidade prometida;
+- [x] navegação semântica, foco visível e redução de movimento;
+- [x] typecheck, lint, formatação e build de produção aprovados após a revisão;
+- [ ] inspeção visual com navegador disponível;
 - [ ] preview publicado na Vercel e vinculado ao pull request.
 
 ## Vercel
 
-O projeto deve usar `apps/website` como Root Directory. Next.js é detectado automaticamente e não há variáveis de
-ambiente neste corte. O preview da branch é a forma de aprovação; produção e domínio próprio permanecem fora desta
-entrega até decisão explícita.
+O projeto usa `apps/website` como Root Directory. Next.js é detectado automaticamente e não há variáveis de ambiente
+obrigatórias. O preview da branch é a forma de aprovação; produção e domínio próprio permanecem fora desta entrega até
+decisão explícita.
