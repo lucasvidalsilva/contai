@@ -1,14 +1,14 @@
 import { useState, type ReactNode } from "react";
 
-import { describeError, pickAndAnalyzeInvoice } from "./desktop";
+import { describeError, pickAndAnalyzeDocuments } from "./desktop";
 import { formatIssueDate, severityLabel } from "./format";
-import type { AnalysisResult, Alert } from "./types";
+import type { Alert, AnalysisProgress, BatchAnalysis } from "./types";
 import "./App.css";
 
 type ViewState =
   | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "result"; analysis: AnalysisResult }
+  | { kind: "loading"; progress: AnalysisProgress }
+  | { kind: "result"; batch: BatchAnalysis }
   | { kind: "error"; message: string };
 
 type IconName = "arrow" | "check" | "document" | "lock" | "report" | "shield";
@@ -62,13 +62,25 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   );
 }
 
-function ResultStatus({ analysis }: { analysis: AnalysisResult }) {
-  const { report } = analysis;
-  const hasError = report.status === "rejected" || report.alerts.some((alert) => alert.severity === "error");
-  const hasWarning = report.alerts.some((alert) => alert.severity === "warning");
+function batchStatistics(batch: BatchAnalysis) {
+  return {
+    analyzed: batch.documents.filter(({ report }) => report.status === "analyzed").length,
+    rejected: batch.documents.filter(({ report }) => report.status === "rejected").length,
+    alerts: batch.documents.reduce((total, { report }) => total + report.alerts.length, 0),
+  };
+}
+
+function ResultStatus({ batch }: { batch: BatchAnalysis }) {
+  const statistics = batchStatistics(batch);
+  const hasError =
+    statistics.rejected > 0 ||
+    batch.documents.some(({ report }) => report.alerts.some((alert) => alert.severity === "error"));
+  const hasWarning = batch.documents.some(({ report }) =>
+    report.alerts.some((alert) => alert.severity === "warning"),
+  );
   const tone = hasError ? "danger" : hasWarning ? "attention" : "success";
   const title = hasError
-    ? "Documento rejeitado"
+    ? "Conferência concluída com rejeições"
     : hasWarning
       ? "Conferência concluída com alertas"
       : "Conferência concluída";
@@ -82,7 +94,9 @@ function ResultStatus({ analysis }: { analysis: AnalysisResult }) {
         <p className="overline">Resultado da análise</p>
         <h2>{title}</h2>
         <p>
-          {analysis.fileName} · {report.alerts.length} {report.alerts.length === 1 ? "alerta" : "alertas"}
+          {batch.sourceName} · {batch.documents.length}{" "}
+          {batch.documents.length === 1 ? "documento" : "documentos"} · {statistics.alerts}{" "}
+          {statistics.alerts === 1 ? "alerta" : "alertas"}
         </p>
       </div>
       <span className="result-status__scope">processado localmente</span>
@@ -90,25 +104,29 @@ function ResultStatus({ analysis }: { analysis: AnalysisResult }) {
   );
 }
 
-function Summary({ analysis }: { analysis: AnalysisResult }) {
-  const { report } = analysis;
+function BatchSummary({ batch }: { batch: BatchAnalysis }) {
+  const statistics = batchStatistics(batch);
   return (
-    <dl className="summary-grid" aria-label="Resumo da análise">
+    <dl className="summary-grid summary-grid--batch" aria-label="Resumo do lote">
       <div>
-        <dt>Documento</dt>
-        <dd title={analysis.fileName}>{analysis.fileName}</dd>
+        <dt>Documentos</dt>
+        <dd>{batch.documents.length}</dd>
       </div>
       <div>
-        <dt>Modelo</dt>
-        <dd>{report.document_model ?? "Não identificado"}</dd>
+        <dt>Analisados</dt>
+        <dd>{statistics.analyzed}</dd>
       </div>
       <div>
-        <dt>Emissão</dt>
-        <dd>{formatIssueDate(report.issue_date)}</dd>
+        <dt>Rejeitados</dt>
+        <dd>{statistics.rejected}</dd>
       </div>
       <div>
-        <dt>Contrato do motor</dt>
-        <dd>{report.contract_version}</dd>
+        <dt>Alertas</dt>
+        <dd>{statistics.alerts}</dd>
+      </div>
+      <div>
+        <dt>Duplicados ignorados</dt>
+        <dd>{batch.duplicateFiles.length}</dd>
       </div>
     </dl>
   );
@@ -137,6 +155,56 @@ function AlertCard({ alert, number }: { alert: Alert; number: number }) {
   );
 }
 
+function DocumentResult({
+  analysis,
+  index,
+  initiallyOpen,
+}: {
+  analysis: BatchAnalysis["documents"][number];
+  index: number;
+  initiallyOpen: boolean;
+}) {
+  const { report } = analysis;
+  const rejected = report.status === "rejected";
+  const hasAlerts = report.alerts.length > 0;
+  const tone = rejected ? "rejected" : hasAlerts ? "attention" : "success";
+  const label = rejected ? "Rejeitado" : hasAlerts ? "Com alertas" : "Sem alertas";
+
+  return (
+    <details className={`document-result document-result--${tone}`} open={initiallyOpen}>
+      <summary>
+        <span className="document-result__index">{String(index).padStart(2, "0")}</span>
+        <span className="document-result__name" title={analysis.fileName}>
+          {analysis.fileName}
+        </span>
+        <span className="document-result__meta">
+          Modelo {report.document_model ?? "—"} · {formatIssueDate(report.issue_date)}
+        </span>
+        <span className="document-result__status">{label}</span>
+        <span className="document-result__count">{report.alerts.length}</span>
+      </summary>
+      <div className="document-result__content">
+        {report.alerts.length === 0 ? (
+          <div className="document-empty">
+            <Icon name="check" size={18} />
+            Nenhuma divergência nas verificações executadas.
+          </div>
+        ) : (
+          <div className="alert-list">
+            {report.alerts.map((alert, alertIndex) => (
+              <AlertCard
+                key={`${alert.rule_id}-${alertIndex}`}
+                alert={alert}
+                number={alertIndex + 1}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </details>
+  );
+}
+
 function IdleWorkspace({ onSelect }: { onSelect: () => void }) {
   return (
     <>
@@ -147,24 +215,25 @@ function IdleWorkspace({ onSelect }: { onSelect: () => void }) {
           </div>
           <div className="document-mark" aria-hidden="true">
             <Icon name="document" size={28} />
-            <span>XML</span>
+            <span>XML/ZIP</span>
           </div>
           <p className="overline">Nova conferência</p>
-          <h2>Selecione uma NF-e para revisar.</h2>
+          <h2>Selecione uma NF-e ou um lote ZIP.</h2>
           <p className="import-panel__description">
-            O arquivo é aberto apenas pelo motor local. Nenhum XML, caminho ou dado fiscal é enviado para servidores.
+            Os arquivos são abertos apenas pelo motor local. Nenhum XML, caminho ou dado fiscal é enviado para
+            servidores.
           </p>
           <button className="primary-button" type="button" onClick={onSelect}>
-            Selecionar XML
+            Selecionar XML ou ZIP
             <Icon name="arrow" size={18} />
           </button>
-          <p className="file-requirements">NF-e modelo 55 · XML de até 2 MB · uma nota por análise</p>
+          <p className="file-requirements">Até 100 XMLs · 2 MB por XML · ZIP de até 25 MB</p>
         </article>
 
         <aside className="scope-panel" aria-labelledby="scope-title">
           <div>
             <p className="overline">Escopo do motor</p>
-            <h2 id="scope-title">Conferência objetiva, sem promessas amplas.</h2>
+            <h2 id="scope-title">Conferência objetiva, individual ou em lote.</h2>
           </div>
           <ol className="scope-list">
             <li>
@@ -184,8 +253,8 @@ function IdleWorkspace({ onSelect }: { onSelect: () => void }) {
             <li>
               <span>03</span>
               <div>
-                <strong>Relatório local</strong>
-                <p>Resultado sem persistir o documento.</p>
+                <strong>Lote protegido</strong>
+                <p>Limites, deduplicação e progresso local.</p>
               </div>
             </li>
           </ol>
@@ -200,31 +269,62 @@ function IdleWorkspace({ onSelect }: { onSelect: () => void }) {
         <div>
           <span>01</span>
           <strong>Seleção local</strong>
-          <p>Você escolhe o arquivo.</p>
+          <p>XML único ou lote ZIP.</p>
         </div>
         <div>
           <span>02</span>
-          <strong>Análise determinística</strong>
-          <p>O motor aplica regras versionadas.</p>
+          <strong>Análise progressiva</strong>
+          <p>Um motor, vários documentos.</p>
         </div>
         <div>
           <span>03</span>
           <strong>Revisão das evidências</strong>
-          <p>Você decide o próximo passo.</p>
+          <p>Resultado por documento.</p>
         </div>
       </section>
     </>
   );
 }
 
+function LoadingWorkspace({ progress }: { progress: AnalysisProgress }) {
+  const maximum = Math.max(progress.total, 1);
+  const percentage = progress.total === 0 ? 0 : Math.round((progress.processed / progress.total) * 100);
+  return (
+    <section className="loading-panel" aria-live="polite">
+      <div className="loading-panel__indicator" aria-hidden="true">
+        <span />
+      </div>
+      <p className="overline">Motor fiscal local</p>
+      <h2>{progress.total === 0 ? "Preparando os documentos…" : "Analisando o lote…"}</h2>
+      <p className="loading-panel__file">
+        {progress.fileName ?? "Validando limites e removendo duplicidades."}
+      </p>
+      <div className="progress-block">
+        <div>
+          <strong>{progress.total === 0 ? "Preparando" : `${progress.processed} de ${progress.total}`}</strong>
+          <span>{percentage}%</span>
+        </div>
+        <progress max={maximum} value={progress.processed}>
+          {percentage}%
+        </progress>
+      </div>
+    </section>
+  );
+}
+
 function App() {
   const [state, setState] = useState<ViewState>({ kind: "idle" });
 
-  async function selectInvoice() {
-    setState({ kind: "loading" });
+  async function selectDocuments() {
+    setState({
+      kind: "loading",
+      progress: { processed: 0, total: 0, fileName: null },
+    });
     try {
-      const analysis = await pickAndAnalyzeInvoice();
-      setState(analysis ? { kind: "result", analysis } : { kind: "idle" });
+      const batch = await pickAndAnalyzeDocuments((progress) => {
+        setState({ kind: "loading", progress });
+      });
+      setState(batch ? { kind: "result", batch } : { kind: "idle" });
     } catch (error) {
       setState({ kind: "error", message: describeError(error) });
     }
@@ -269,18 +369,8 @@ function App() {
         </header>
 
         <main id="main" className="workspace">
-          {state.kind === "idle" && <IdleWorkspace onSelect={selectInvoice} />}
-
-          {state.kind === "loading" && (
-            <section className="loading-panel" aria-live="polite">
-              <div className="loading-panel__indicator" aria-hidden="true">
-                <span />
-              </div>
-              <p className="overline">Motor fiscal local</p>
-              <h2>Analisando o documento…</h2>
-              <p>Validando estrutura, itens e totais pelas regras disponíveis.</p>
-            </section>
-          )}
+          {state.kind === "idle" && <IdleWorkspace onSelect={selectDocuments} />}
+          {state.kind === "loading" && <LoadingWorkspace progress={state.progress} />}
 
           {state.kind === "error" && (
             <section className="error-panel" role="alert">
@@ -290,8 +380,8 @@ function App() {
               <div>
                 <p className="overline">Análise interrompida</p>
                 <h2>{state.message}</h2>
-                <p>Nenhum conteúdo do XML foi enviado ou persistido pelo contAI.</p>
-                <button className="secondary-button" type="button" onClick={selectInvoice}>
+                <p>Nenhum conteúdo fiscal foi enviado ou persistido pelo contAI.</p>
+                <button className="secondary-button" type="button" onClick={selectDocuments}>
                   Tentar novamente
                   <Icon name="arrow" size={17} />
                 </button>
@@ -304,43 +394,51 @@ function App() {
               <div className="results-toolbar">
                 <div>
                   <p className="overline">Sessão atual</p>
-                  <strong>Relatório de conferência</strong>
+                  <strong>{state.batch.sourceName}</strong>
                 </div>
-                <button className="secondary-button" type="button" onClick={selectInvoice}>
-                  Analisar outro XML
+                <button className="secondary-button" type="button" onClick={selectDocuments}>
+                  Analisar outro arquivo
                   <Icon name="arrow" size={17} />
                 </button>
               </div>
 
-              <ResultStatus analysis={state.analysis} />
-              <Summary analysis={state.analysis} />
+              <ResultStatus batch={state.batch} />
+              <BatchSummary batch={state.batch} />
+
+              {state.batch.duplicateFiles.length > 0 && (
+                <aside className="duplicate-note">
+                  <strong>
+                    {state.batch.duplicateFiles.length}{" "}
+                    {state.batch.duplicateFiles.length === 1 ? "duplicado ignorado" : "duplicados ignorados"}
+                  </strong>
+                  <span>{state.batch.duplicateFiles.join(", ")}</span>
+                </aside>
+              )}
 
               <section className="alerts-section">
                 <div className="section-heading">
                   <div>
-                    <p className="overline">Evidências</p>
-                    <h2>Alertas para revisão</h2>
+                    <p className="overline">Resultado por documento</p>
+                    <h2>Documentos analisados</h2>
                   </div>
-                  <span>{String(state.analysis.report.alerts.length).padStart(2, "0")}</span>
+                  <span>{String(state.batch.documents.length).padStart(2, "0")}</span>
                 </div>
 
-                {state.analysis.report.alerts.length === 0 ? (
-                  <div className="empty-alerts">
-                    <div aria-hidden="true">
-                      <Icon name="check" size={22} />
-                    </div>
-                    <div>
-                      <strong>Nenhuma divergência nas verificações executadas.</strong>
-                      <p>Isso não representa conformidade fiscal integral. Considere os limites do motor ao decidir.</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="alert-list">
-                    {state.analysis.report.alerts.map((alert, index) => (
-                      <AlertCard key={`${alert.rule_id}-${index}`} alert={alert} number={index + 1} />
-                    ))}
-                  </div>
-                )}
+                <div className="document-list">
+                  {state.batch.documents.map((analysis, index) => (
+                    <DocumentResult
+                      key={`${analysis.fileName}-${index}`}
+                      analysis={analysis}
+                      index={index + 1}
+                      initiallyOpen={state.batch.documents.length === 1}
+                    />
+                  ))}
+                </div>
+
+                <p className="result-disclaimer">
+                  Ausência de alertas não representa conformidade fiscal integral. Considere os limites do motor ao
+                  decidir.
+                </p>
               </section>
             </div>
           )}
@@ -348,7 +446,7 @@ function App() {
 
         <footer>
           <span>contAI · conferência local</span>
-          <span>O documento permanece neste computador.</span>
+          <span>Os documentos permanecem neste computador.</span>
         </footer>
       </div>
     </div>

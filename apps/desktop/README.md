@@ -1,7 +1,8 @@
 # contAI Desktop
 
-Aplicativo Tauri v2 + React/TypeScript para conferência fiscal local. O primeiro corte aceita uma NF-e modelo 55 por
-vez e chama o `contai-fiscal-engine` empacotado como sidecar; o XML não é enviado a servidores.
+Aplicativo Tauri v2 + React/TypeScript para conferência fiscal local. Aceita uma NF-e modelo 55 em XML ou um ZIP com
+até 100 XMLs, remove duplicatas por conteúdo e mostra o progresso e o resultado de cada documento. O
+`contai-fiscal-engine` é empacotado como sidecar e nenhum XML é enviado a servidores.
 
 O pacote atual suporta Windows 10/11 x64. O instalador NSIS inclui o WebView2 offline, instala por usuário e não exige
 Python, Rust, Node.js ou privilégios administrativos na máquina de destino.
@@ -42,7 +43,10 @@ npm --prefix apps/desktop run installer:verify
 
 O instalador é criado em
 `apps/desktop/src-tauri/target/release/bundle/nsis/contAI_0.1.0_x64-setup.exe`. A matriz para teste manual fica em
-`apps/desktop/var/test-invoices/`.
+`apps/desktop/var/test-invoices/`; `13-lote-sintetico.zip` cobre lote, rejeição, alerta, arquivo não XML e duplicata.
+
+Limites atuais: ZIP compactado de até 25 MB, no máximo 50 MB descompactados, 1.000 entradas, 100 XMLs e 2 MB por XML.
+Arquivos protegidos por senha, links simbólicos e caminhos inseguros são rejeitados antes da análise.
 
 O pacote local ainda não possui assinatura de código e pode acionar o SmartScreen. Não distribuir publicamente antes
 da assinatura, dos testes em Windows 10/11 limpos e da aprovação visual do responsável pelo produto.

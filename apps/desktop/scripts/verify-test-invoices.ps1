@@ -45,4 +45,25 @@ foreach ($case in $manifest.cases) {
     $verified += 1
 }
 
-Write-Output "Matriz sintética verificada: $verified cenários, contrato fiscal-engine-v1."
+$archivePath = Join-Path $testDataRoot $manifest.archive.file
+if (-not (Test-Path -LiteralPath $archivePath)) {
+    throw "Lote ZIP sintético ausente: $archivePath"
+}
+
+$batchCases = @($manifest.cases | Where-Object { $_.desktop_boundary -eq $null } | Select-Object -First 3)
+$batchPaths = @($batchCases | ForEach-Object { Join-Path $testDataRoot $_.file })
+$batchJson = @(& $binaryPath "--desktop-batch" @batchPaths)
+if ($LASTEXITCODE -ne 0) {
+    throw "Sidecar rejeitou a matriz em lote com código $LASTEXITCODE."
+}
+if ($batchJson.Count -ne $batchCases.Count) {
+    throw "Fluxo em lote retornou $($batchJson.Count) itens, esperado $($batchCases.Count)."
+}
+for ($index = 0; $index -lt $batchJson.Count; $index += 1) {
+    $batchLine = $batchJson[$index] | ConvertFrom-Json
+    if ($batchLine.index -ne $index -or $batchLine.report.status -ne $batchCases[$index].status) {
+        throw "Fluxo em lote retornou item inesperado no índice $index."
+    }
+}
+
+Write-Output "Matriz sintética verificada: $verified cenários individuais e $($batchJson.Count) itens em lote."

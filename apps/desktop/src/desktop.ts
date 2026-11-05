@@ -1,9 +1,15 @@
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 
-import type { AnalysisResult, CommandErrorPayload } from "./types";
+import type { AnalysisProgress, BatchAnalysis, CommandErrorPayload } from "./types";
 
-export async function pickAndAnalyzeInvoice(): Promise<AnalysisResult | null> {
-  return invoke<AnalysisResult | null>("pick_and_analyze_invoice");
+export async function pickAndAnalyzeDocuments(
+  onProgress: (progress: AnalysisProgress) => void,
+): Promise<BatchAnalysis | null> {
+  const progressChannel = new Channel<AnalysisProgress>();
+  progressChannel.onmessage = onProgress;
+  return invoke<BatchAnalysis | null>("pick_and_analyze_documents", {
+    onProgress: progressChannel,
+  });
 }
 
 export function describeError(error: unknown): string {
