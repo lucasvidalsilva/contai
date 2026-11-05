@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from zipfile import ZIP_DEFLATED, ZipFile
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 DESKTOP_ROOT = Path(__file__).resolve().parents[1]
@@ -152,17 +153,39 @@ def main() -> None:
         ),
     ]
 
+    archive_name = "13-lote-sintetico.zip"
+    archive_path = OUTPUT / archive_name
+    archive_members = [
+        ("entrada/01-nfe-valida.xml", "01-nfe-valida.xml"),
+        ("entrada/02-total-produtos-divergente.xml", "02-total-produtos-divergente.xml"),
+        ("rejeicoes/05-schema-invalido.xml", "05-schema-invalido.xml"),
+        ("duplicada/copia-nfe-valida.xml", "01-nfe-valida.xml"),
+    ]
+    with ZipFile(archive_path, "w", compression=ZIP_DEFLATED) as archive:
+        for member_name, source_name in archive_members:
+            archive.writestr(member_name, (OUTPUT / source_name).read_bytes())
+        archive.writestr(
+            "leia-me.txt",
+            "Lote inteiramente sintético para testes locais do contAI.\n",
+        )
+
     manifest = {
         "contract_version": "contai-desktop-testdata-v1",
         "synthetic_only": True,
         "source": str(SOURCE.relative_to(REPOSITORY_ROOT)).replace("\\", "/"),
         "cases": cases,
+        "archive": {
+            "file": archive_name,
+            "unique_documents": 3,
+            "duplicate_files": ["copia-nfe-valida.xml"],
+            "ignored_non_xml_entries": 1,
+        },
     }
     (OUTPUT / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    print(f"{len(cases)} NF-e sintéticas geradas em {OUTPUT}")
+    print(f"{len(cases)} NF-e sintéticas e 1 lote ZIP gerados em {OUTPUT}")
 
 
 if __name__ == "__main__":

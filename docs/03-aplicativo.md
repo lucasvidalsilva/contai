@@ -6,8 +6,9 @@ Construir a experiência local de conferência do contAI com Tauri v2, React e T
 computador do usuário; a interface chama o motor Python da etapa 02 por um sidecar empacotado, sem API remota e sem
 credenciais do Supabase.
 
-**Estado:** em andamento. O primeiro corte vertical cobre uma NF-e por vez no Windows. Ele precisa funcionar de ponta
-a ponta antes de lote, persistência ou exportação.
+**Estado:** em andamento. O fluxo local cobre XML individual e lote ZIP no Windows, com deduplicação por conteúdo,
+progresso incremental e resultado por documento. Persistência, exportação e homologação de distribuição continuam
+pendentes.
 
 O instalador de desenvolvimento atual é direcionado a Windows 10/11 x64. Compatibilidade ampla não será declarada
 somente porque a compilação funciona: ainda exige teste manual do produto, máquinas virtuais limpas e assinatura de
@@ -22,6 +23,12 @@ código antes da distribuição pública.
 - A webview não recebe permissão de diálogo, sistema de arquivos ou shell.
 - Um comando Rust valida extensão e tamanho, executa exclusivamente o sidecar conhecido e desserializa o contrato
   `fiscal-engine-v1` antes de devolver dados à webview.
+- Lotes ZIP são inspecionados e descompactados em diretório temporário: até 25 MB compactados, 50 MB descompactados,
+  1.000 entradas, 100 XMLs e 2 MB por XML. Caminhos inseguros, links simbólicos e XMLs criptografados são rejeitados.
+- Duplicatas são identificadas localmente por SHA-256 do conteúdo. O hash não é devolvido à webview, persistido nem
+  enviado a qualquer servidor.
+- O sidecar inicia uma vez por lote e envia um relatório JSON por documento; um canal Tauri atualiza a barra de
+  progresso sem expor o caminho completo.
 - O relatório mostra apenas nome do arquivo, estado, modelo, data, versão do motor e alertas. Caminho completo e XML
   não são mantidos no estado exibido nem registrados em log.
 - O instalador NSIS usa português do Brasil, instalação por usuário e WebView2 offline; não exige privilégios de
@@ -50,7 +57,7 @@ O desenho segue as orientações oficiais de
 
 ### M1 — fluxo individual local
 
-- [x] selecionar somente um arquivo `.xml` pelo diálogo nativo;
+- [x] selecionar um arquivo `.xml` ou `.zip` pelo diálogo nativo;
 - [x] construir e executar o sidecar sem exigir Python no uso do aplicativo empacotado;
 - [ ] analisar a fixture sintética da etapa 02 e renderizar o relatório;
 - [x] representar estados vazio, carregando, sucesso, alertas, rejeição e falha interna;
@@ -62,9 +69,8 @@ O desenho segue as orientações oficiais de
 - [x] documentar execução e limitações.
 
 O item ainda aberto exige a seleção da fixture no diálogo da janela nativa e inspeção do relatório renderizado. O
-sidecar e a UI já foram verificados separadamente; a build instalada inicializa WebView2 sem encerrar, mas o helper de
-automação visual não estava disponível nesta execução. A aprovação manual do responsável pelo produto é obrigatória
-antes de push ou pull request.
+sidecar e a UI foram verificados separadamente; a build instalada inicializa WebView2 sem encerrar. O responsável pelo
+produto autorizou o pull request deste corte, mas a aprovação visual definitiva continua pendente.
 
 ## Matriz sintética de validação
 
@@ -75,6 +81,10 @@ da etapa 02. O manifesto `contai-desktop-testdata-v1` cobre:
 - divergência de total de produtos, componentes e valor unitário;
 - schema inválido, modelo 65, XML truncado, DTD, namespace ausente e UTF-16;
 - arquivo vazio e arquivo acima de 2 MB.
+
+O mesmo comando também gera `13-lote-sintetico.zip` com três documentos únicos, uma cópia duplicada em outra pasta e
+uma entrada não XML. O teste do sidecar verifica o contrato individual e o fluxo incremental com vários caminhos na
+mesma instância.
 
 `npm run testdata:verify` executa todos os casos contra o sidecar. Nenhum XML real, CNPJ válido ou documento de cliente
 é usado.
@@ -104,10 +114,10 @@ Ainda são obrigatórios antes de concluir o M4:
 
 ### M2 — lote e deduplicação
 
-- importar múltiplos XMLs e ZIPs com limites explícitos;
-- identificar duplicidade local sem enviar chaves ou hashes ao servidor;
-- acompanhar progresso, sucessos e rejeições por documento;
-- permitir filtragem e priorização dos alertas.
+- [x] importar ZIPs com múltiplos XMLs e limites explícitos;
+- [x] identificar duplicidade local sem enviar chaves ou hashes ao servidor;
+- [x] acompanhar progresso, sucessos e rejeições por documento;
+- [ ] permitir filtragem e priorização dos alertas.
 
 ### M3 — revisão persistente
 
@@ -122,7 +132,7 @@ Ainda são obrigatórios antes de concluir o M4:
 - acessibilidade, atalhos, comportamento offline e instalador Windows verificados;
 - política explícita para atualização do aplicativo e dos catálogos públicos.
 
-A etapa 03 somente será declarada concluída após M1–M4. O primeiro corte não promete lote, histórico ou exportação.
+A etapa 03 somente será declarada concluída após M1–M4. O corte atual não promete histórico ou exportação.
 
 ## Segurança e limites
 

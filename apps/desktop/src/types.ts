@@ -24,6 +24,18 @@ export interface AnalysisResult {
   report: AnalysisReport;
 }
 
+export interface BatchAnalysis {
+  sourceName: string;
+  documents: AnalysisResult[];
+  duplicateFiles: string[];
+}
+
+export interface AnalysisProgress {
+  processed: number;
+  total: number;
+  fileName: string | null;
+}
+
 export interface CommandErrorPayload {
   code: string;
   message: string;
